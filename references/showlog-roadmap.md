@@ -1,10 +1,29 @@
 # ShowLog — Roadmap & Feature Tracker
 
-**Last updated:** Apr 1, 2026 | Stack: React + Vite + Anthropic API + localStorage
+**Last updated:** Apr 1, 2026 | [classy-alpaca-fd100e.netlify.app](https://classy-alpaca-fd100e.netlify.app) | Stack: React + Vite + Netlify Functions + Anthropic API + localStorage
 
 ---
 
 ## 🚀 Releases
+
+### v0.2 — Apr 1, 2026
+
+#### v0.2.0
+<sub>Deployed 2026-04-01 to Netlify</sub>
+
+**Netlify deployment, server-side API proxy, and build fixes.**
+
+##### Features
+- **INF-01: Netlify Deploy** — App deployed to [classy-alpaca-fd100e.netlify.app](https://classy-alpaca-fd100e.netlify.app). Build pipeline: `npm run build` → `dist/` published via `netlify.toml`. `.gitignore` added covering `.env`, `node_modules/`, `dist/`, `.sfdx/`.
+- **INF-01b: Netlify Function API Proxy** — Created `netlify/functions/claude.js` — a server-side Edge Function that proxies all Anthropic API calls. Frontend `askClaude()` now hits `/api/claude` instead of `api.anthropic.com` directly. API key stored as a Netlify env var (`ANTHROPIC_API_KEY`), never exposed in the browser bundle. Removes the CORS issue from direct browser-to-Anthropic calls.
+
+##### Fixes
+- **BUG-01: Black screen on load** — `index.html` was in `public/` instead of the project root. Vite requires `index.html` at root as the entry point; moved it.
+- **BUG-02: Anthropic API calls failing** — `askClaude()` was missing `x-api-key`, `anthropic-version`, and `anthropic-dangerous-direct-browser-access` headers (app was originally built as a Claude artifact where the key is injected automatically). Fixed by routing calls through the Netlify proxy instead.
+- **BUG-03: Netlify detecting project as Next.js** — `package.json` had stray `next` and `react-scripts` dependencies from the initial scaffold. Removed both; Netlify now correctly identifies the project as a plain Vite app.
+- **BUG-04: Outdated model ID** — `askClaude()` was using `claude-sonnet-4-20250514` (deprecated). Updated to `claude-haiku-4-5-20251001` — faster and cheaper for show data fetching.
+
+---
 
 ### v0.1 — Apr 1, 2026
 
@@ -27,8 +46,7 @@
 
 | ID | Item | Type | Priority | Details |
 |----|------|------|----------|---------|
-| INF-01 | **Deploy to Vercel** | Infra | **Critical** | Deploy the Vite + React app to Vercel. The Anthropic API key is currently hardcoded client-side which is a security issue — this must be resolved before any public deployment. Steps: (1) set up a Vercel project from the GitHub repo, (2) create a `/api/claude` serverless function (Node.js) that accepts `{prompt, systemPrompt}` and proxies the Anthropic API call server-side, keeping the key in Vercel env vars, (3) update all `askClaude()` calls in the frontend to hit `/api/claude` instead of `api.anthropic.com` directly, (4) configure CORS and rate-limiting on the proxy endpoint. Custom domain optional for now. |
-| INF-02 | **TMDB Direct API Integration** | Infra | **High** | Replace all Claude + web_search show-data calls with direct TMDB REST API calls. TMDB has a free API (themoviedb.org) with endpoints for search, trending, top-rated, on-the-air, and show details. (1) Register for a TMDB API key and store as env var in Vercel, (2) create `/api/tmdb` proxy endpoint to forward requests without exposing the key client-side, (3) replace `fetchTMDBViaSearch()` and `fetchShowCategory()` with direct TMDB calls — `GET /3/search/tv`, `GET /3/trending/tv/week`, `GET /3/tv/top_rated`, `GET /3/tv/on_the_air`, `GET /3/tv/{id}`, (4) TMDB returns real `poster_path` and `backdrop_path` values, so images will be reliable. This eliminates hallucinated TMDB IDs and broken poster paths from the current Claude-mediated approach. Keep Claude for features that genuinely need it (e.g. recommendations, natural language queries). |
+| INF-02 | **TMDB Direct API Integration** | Infra | **High** | Replace all Claude + web_search show-data calls with direct TMDB REST API calls. TMDB has a free API (themoviedb.org) with endpoints for search, trending, top-rated, on-the-air, and show details. (1) Register for a TMDB API key and store as Netlify env var (`TMDB_API_KEY`), (2) add a `netlify/functions/tmdb.js` proxy to forward requests without exposing the key client-side, (3) replace `fetchTMDBViaSearch()` and `fetchShowCategory()` with direct TMDB calls — `GET /3/search/tv`, `GET /3/trending/tv/week`, `GET /3/tv/top_rated`, `GET /3/tv/on_the_air`, `GET /3/tv/{id}`, (4) TMDB returns real `poster_path` and `backdrop_path` values, so images will be reliable. This eliminates hallucinated TMDB IDs and broken poster paths from the current Claude-mediated approach. Keep Claude for features that genuinely need it (e.g. recommendations, natural language queries). |
 | INF-03 | **Supabase Backend** | Infra | **High** | Replace `localStorage` with a real database so data persists across devices and sets up the foundation for social features. (1) Create a Supabase project, (2) schema: `users`, `watchlist_entries` (user_id, show_id, tmdb_data jsonb, added_at), `diary_entries` (user_id, show_id, watched_at, season, notes, rating), `show_ratings` (user_id, show_id, rating, rated_at), (3) add Supabase client to the frontend, (4) migrate localStorage reads/writes to Supabase queries. Auth is a prerequisite — at minimum anonymous sessions so data is persisted per-browser until the user creates an account. |
 | INF-04 | **User Authentication** | Infra | **High** | Add Supabase Auth so users have real accounts and data persists across devices. (1) Email + password sign-up/login as the baseline, (2) optionally add Google OAuth for frictionless onboarding, (3) auth gate: app works in read-only browse mode when logged out, but Watchlist/Diary/Ratings require sign-in, (4) user profile page showing username, member since, and stats summary. **Depends on:** INF-03 (Supabase). |
 
@@ -56,6 +74,7 @@
 
 | ID | Item | Type | Completed |
 |----|------|------|-----------|
+| INF-01 | **Netlify Deploy + API Proxy** — App live at classy-alpaca-fd100e.netlify.app. Netlify Function proxies Anthropic API server-side; key stored as env var. Fixed stray `next`/`react-scripts` deps, misplaced `index.html`, outdated model ID. | Infra → Done | Apr 1 |
 | FEA-01 | **Show Search** — Claude + web_search proxying TMDB, returns up to 12 results with poster/overview/genres. | Feature → Done | Apr 1 |
 | FEA-02 | **Browsable Categories** — Trending, Top Rated, Currently Airing via Claude + web_search. | Feature → Done | Apr 1 |
 | FEA-03 | **Show Detail Modal** — Backdrop, title, genres, rating, overview, action buttons. | Feature → Done | Apr 1 |

@@ -6,11 +6,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 const TMDB_IMG = "https://image.tmdb.org/t/p/";
 
 async function askClaude(prompt, systemPrompt) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 4000,
       system: systemPrompt || "You are a helpful assistant that returns structured JSON data about TV shows. Always respond with valid JSON only — no markdown, no backticks, no preamble.",
       messages: [{ role: "user", content: prompt }],
