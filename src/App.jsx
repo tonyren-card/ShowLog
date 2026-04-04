@@ -14,11 +14,10 @@ async function askClaude(prompt, systemPrompt) {
       max_tokens: 4000,
       system: systemPrompt || "You are a helpful assistant that returns structured JSON data about TV shows. Always respond with valid JSON only — no markdown, no backticks, no preamble.",
       messages: [{ role: "user", content: prompt }],
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
     }),
   });
-  if (!res.ok) throw new Error(`API ${res.status}`);
   const data = await res.json();
+  if (!res.ok || data.type === "error") throw new Error(data.error?.message || `API ${res.status}`);
   // Extract text from response
   const text = data.content
     ?.filter((b) => b.type === "text")
@@ -331,18 +330,22 @@ export default function ShowLog() {
 
   const handleShowClick = (show) => { setSelectedShow(show); showCache.current.set(show.id, show); };
 
-  // Load initial data
+  // Load initial data (sequential to avoid rate limits)
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      fetchShowCategory("trending"),
-      fetchShowCategory("most popular"),
-      fetchShowCategory("top rated critically acclaimed"),
-    ]).then(([t, p, tr]) => {
-      setTrending(t); setPopular(p); setTopRated(tr);
-      [...t, ...p, ...tr].forEach(s => showCache.current.set(s.id, s));
-    }).catch(e => setError("Failed to load shows. Please refresh and try again."))
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        const t = await fetchShowCategory("trending");
+        const p = await fetchShowCategory("most popular");
+        const tr = await fetchShowCategory("top rated critically acclaimed");
+        setTrending(t); setPopular(p); setTopRated(tr);
+        [...t, ...p, ...tr].forEach(s => showCache.current.set(s.id, s));
+      } catch (e) {
+        setError("Failed to load shows. Please refresh and try again.");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   // Search

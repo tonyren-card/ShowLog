@@ -3,3 +3,6 @@
 node_modules/
 dist/
 .sfdx/
+
+# Local Netlify folder
+.netlify
