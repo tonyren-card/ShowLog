@@ -1,120 +1,76 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-
-// ── Anthropic API powered TMDB search ──
-// Uses Claude + web_search to fetch TV show data since artifacts can't call external APIs directly
+import { supabase } from "./supabase";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/";
+const TMDB_BASE = "https://api.themoviedb.org/3";
+const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
-async function askClaude(prompt, systemPrompt) {
-  const res = await fetch("/api/claude", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 4000,
-      system: systemPrompt || "You are a helpful assistant that returns structured JSON data about TV shows. Always respond with valid JSON only — no markdown, no backticks, no preamble.",
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-  const data = await res.json();
-  if (!res.ok || data.type === "error") throw new Error(data.error?.message || `API ${res.status}`);
-  // Extract text from response
-  const text = data.content
-    ?.filter((b) => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
-  return text;
+const GENRE_MAP = {
+  10759: "Action & Adventure", 16: "Animation", 35: "Comedy", 80: "Crime",
+  99: "Documentary", 18: "Drama", 10751: "Family", 10762: "Kids",
+  9648: "Mystery", 10763: "News", 10764: "Reality", 10765: "Sci-Fi & Fantasy",
+  10766: "Soap", 10767: "Talk", 10768: "War & Politics", 37: "Western",
+};
+
+async function tmdb(path, params = {}) {
+  const url = new URL(`${TMDB_BASE}${path}`);
+  url.searchParams.set("api_key", TMDB_KEY);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`TMDB ${res.status}`);
+  return res.json();
+}
+
+function normalizeShow(s) {
+  return {
+    id: s.id,
+    name: s.name,
+    overview: s.overview,
+    first_air_date: s.first_air_date,
+    vote_average: s.vote_average,
+    vote_count: s.vote_count,
+    poster_path: s.poster_path,
+    backdrop_path: s.backdrop_path,
+    genre_names: (s.genre_ids || s.genres?.map(g => g.id) || []).map(id => GENRE_MAP[id]).filter(Boolean),
+  };
 }
 
 async function fetchTMDBViaSearch(query) {
-  const prompt = `Search TMDB (The Movie Database) for TV shows matching: "${query}"
-
-Return ONLY a JSON array (no markdown, no backticks) of up to 12 TV shows. Each object must have exactly these fields:
-{
-  "id": number (TMDB ID),
-  "name": "show title",
-  "overview": "brief description",
-  "first_air_date": "YYYY-MM-DD",
-  "vote_average": number (0-10),
-  "vote_count": number,
-  "poster_path": "/path.jpg" or null,
-  "backdrop_path": "/path.jpg" or null,
-  "genre_names": ["Genre1", "Genre2"]
-}
-
-Use real TMDB data from the search results. For poster_path and backdrop_path, use the actual TMDB image paths if found.`;
-
-  const text = await askClaude(prompt);
-  try {
-    const clean = text.replace(/```json\s?|```/g, "").trim();
-    return JSON.parse(clean);
-  } catch {
-    // Try to extract JSON array from the response
-    const match = text.match(/\[[\s\S]*\]/);
-    if (match) return JSON.parse(match[0]);
-    return [];
-  }
+  const data = await tmdb("/search/tv", { query, page: 1 });
+  return data.results.slice(0, 12).map(normalizeShow);
 }
 
 async function fetchShowCategory(category) {
-  const prompt = `Search for the current ${category} TV shows on TMDB (The Movie Database) as of 2025-2026.
-
-Return ONLY a JSON array (no markdown, no backticks) of exactly 12 TV shows. Each object must have:
-{
-  "id": number (real TMDB ID),
-  "name": "show title",
-  "overview": "brief description",
-  "first_air_date": "YYYY-MM-DD",
-  "vote_average": number (0-10),
-  "vote_count": number,
-  "poster_path": "/path.jpg" or null,
-  "backdrop_path": "/path.jpg" or null,
-  "genre_names": ["Genre1", "Genre2"]
-}
-
-Use real TMDB data. Include actual TMDB poster_path values when available.`;
-
-  const text = await askClaude(prompt);
-  try {
-    const clean = text.replace(/```json\s?|```/g, "").trim();
-    return JSON.parse(clean);
-  } catch {
-    const match = text.match(/\[[\s\S]*\]/);
-    if (match) return JSON.parse(match[0]);
-    return [];
-  }
+  const endpoints = {
+    trending: "/trending/tv/week",
+    "most popular": "/tv/popular",
+    "top rated critically acclaimed": "/tv/top_rated",
+  };
+  const data = await tmdb(endpoints[category] || "/tv/popular");
+  return data.results.slice(0, 12).map(normalizeShow);
 }
 
 async function fetchShowDetails(showName, showId) {
-  const prompt = `Search for detailed information about the TV show "${showName}" (TMDB ID: ${showId}) on TMDB.
-
-Return ONLY a JSON object (no markdown, no backticks) with:
-{
-  "id": ${showId},
-  "name": "${showName}",
-  "overview": "full description",
-  "first_air_date": "YYYY-MM-DD",
-  "vote_average": number,
-  "vote_count": number,
-  "poster_path": "/path.jpg" or null,
-  "backdrop_path": "/path.jpg" or null,
-  "genre_names": ["Genre1"],
-  "number_of_seasons": number,
-  "status": "Returning Series" or "Ended" etc,
-  "networks": ["Network Name"],
-  "cast": [{"name": "Actor Name", "character": "Character Name"}] (top 10),
-  "seasons": [{"season_number": 1, "episode_count": 10, "name": "Season 1"}]
-}`;
-
-  const text = await askClaude(prompt);
-  try {
-    const clean = text.replace(/```json\s?|```/g, "").trim();
-    return JSON.parse(clean);
-  } catch {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-    return null;
-  }
+  const [details, credits] = await Promise.all([
+    tmdb(`/tv/${showId}`),
+    tmdb(`/tv/${showId}/credits`),
+  ]);
+  return {
+    id: details.id,
+    name: details.name,
+    overview: details.overview,
+    first_air_date: details.first_air_date,
+    vote_average: details.vote_average,
+    vote_count: details.vote_count,
+    poster_path: details.poster_path,
+    backdrop_path: details.backdrop_path,
+    genre_names: details.genres?.map(g => g.name) || [],
+    number_of_seasons: details.number_of_seasons,
+    status: details.status,
+    networks: details.networks?.map(n => n.name) || [],
+    cast: credits.cast?.slice(0, 10).map(c => ({ name: c.name, character: c.character })) || [],
+    seasons: details.seasons?.map(s => ({ season_number: s.season_number, episode_count: s.episode_count, name: s.name })) || [],
+  };
 }
 
 // ── Components ──
@@ -219,9 +175,9 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
 
         <div style={{ padding: "0 32px 32px" }}>
           <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
-            <button onClick={() => toggleWatched(show.id)} style={{ background: isWatched ? "#00e054" : "transparent", border: isWatched ? "none" : "1px solid #456", color: isWatched ? "#14181c" : "#9ab", padding: "10px 20px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, transition: "all 0.2s" }}>
+            <button onClick={() => toggleWatched(show.id, d)} style={{ background: isWatched ? "#00e054" : "transparent", border: isWatched ? "none" : "1px solid #456", color: isWatched ? "#14181c" : "#9ab", padding: "10px 20px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, transition: "all 0.2s" }}>
               {isWatched ? "✓ Watched" : "👁 Mark as Watched"}</button>
-            <button onClick={() => toggleWatchlist(show.id)} style={{ background: isInWatchlist ? "rgba(0,224,84,0.15)" : "transparent", border: isInWatchlist ? "1px solid #00e054" : "1px solid #456", color: isInWatchlist ? "#00e054" : "#9ab", padding: "10px 20px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, transition: "all 0.2s" }}>
+            <button onClick={() => toggleWatchlist(show.id, d)} style={{ background: isInWatchlist ? "rgba(0,224,84,0.15)" : "transparent", border: isInWatchlist ? "1px solid #00e054" : "1px solid #456", color: isInWatchlist ? "#00e054" : "#9ab", padding: "10px 20px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, transition: "all 0.2s" }}>
               {isInWatchlist ? "★ In Watchlist" : "☆ Add to Watchlist"}</button>
             <button onClick={() => setShowReviewInput(!showReviewInput)} style={{ background: "transparent", border: "1px solid #456", color: "#9ab", padding: "10px 20px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>✎ Log / Review</button>
           </div>
@@ -322,30 +278,100 @@ export default function ShowLog() {
   const [watchlist, setWatchlist] = useState(new Set());
   const [watched, setWatched] = useState(new Set());
   const [diary, setDiary] = useState([]);
+  const [userId, setUserId] = useState(null);
   const showCache = useRef(new Map());
 
-  const toggleWatchlist = (id) => setWatchlist(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const toggleWatched = (id) => setWatched(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const addToDiary = (entry) => { setDiary(prev => [entry, ...prev]); toggleWatched(entry.showId); if (entry.showData) showCache.current.set(entry.showId, entry.showData); };
+  const toggleWatchlist = async (id, showData) => {
+    if (!userId) return;
+    const data = showData || showCache.current.get(id);
+    if (watchlist.has(id)) {
+      setWatchlist(prev => { const n = new Set(prev); n.delete(id); return n; });
+      await supabase.from("watchlist_entries").delete().eq("user_id", userId).eq("show_id", id);
+    } else {
+      setWatchlist(prev => { const n = new Set(prev); n.add(id); return n; });
+      await supabase.from("watchlist_entries").upsert({ user_id: userId, show_id: id, show_data: data });
+    }
+  };
+
+  const toggleWatched = async (id, showData) => {
+    if (!userId) return;
+    const data = showData || showCache.current.get(id);
+    if (watched.has(id)) {
+      setWatched(prev => { const n = new Set(prev); n.delete(id); return n; });
+      await supabase.from("watched_shows").delete().eq("user_id", userId).eq("show_id", id);
+    } else {
+      setWatched(prev => { const n = new Set(prev); n.add(id); return n; });
+      await supabase.from("watched_shows").upsert({ user_id: userId, show_id: id, show_data: data });
+    }
+  };
+
+  const addToDiary = async (entry) => {
+    if (!userId) return;
+    setDiary(prev => [entry, ...prev]);
+    if (entry.showData) showCache.current.set(entry.showId, entry.showData);
+    await Promise.all([
+      supabase.from("diary_entries").insert({
+        user_id: userId,
+        show_id: entry.showId,
+        show_data: entry.showData,
+        watched_at: entry.date,
+        notes: entry.review,
+        rating: entry.rating,
+      }),
+      toggleWatched(entry.showId, entry.showData),
+    ]);
+  };
 
   const handleShowClick = (show) => { setSelectedShow(show); showCache.current.set(show.id, show); };
 
-  // Load initial data (sequential to avoid rate limits)
+  // Initialize Supabase session and load user data + shows
   useEffect(() => {
     setLoading(true);
-    (async () => {
-      try {
-        const t = await fetchShowCategory("trending");
-        const p = await fetchShowCategory("most popular");
-        const tr = await fetchShowCategory("top rated critically acclaimed");
+    async function init() {
+      // Establish anonymous session
+      const { data: { session } } = await supabase.auth.getSession();
+      let uid;
+      if (session) {
+        uid = session.user.id;
+      } else {
+        const { data } = await supabase.auth.signInAnonymously();
+        uid = data?.user?.id;
+      }
+      setUserId(uid);
+
+      // Load user data + show categories in parallel
+      const [watchlistRes, diaryRes, watchedRes, showResults] = await Promise.allSettled([
+        supabase.from("watchlist_entries").select("show_id, show_data").eq("user_id", uid),
+        supabase.from("diary_entries").select("*").eq("user_id", uid).order("watched_at", { ascending: false }),
+        supabase.from("watched_shows").select("show_id, show_data").eq("user_id", uid),
+        Promise.all([
+          fetchShowCategory("trending"),
+          fetchShowCategory("most popular"),
+          fetchShowCategory("top rated critically acclaimed"),
+        ]),
+      ]);
+
+      if (watchlistRes.status === "fulfilled" && watchlistRes.value.data) {
+        setWatchlist(new Set(watchlistRes.value.data.map(e => e.show_id)));
+        watchlistRes.value.data.forEach(e => { if (e.show_data) showCache.current.set(e.show_id, e.show_data); });
+      }
+      if (diaryRes.status === "fulfilled" && diaryRes.value.data) {
+        setDiary(diaryRes.value.data.map(e => ({ showId: e.show_id, showData: e.show_data, rating: e.rating, review: e.notes, date: e.watched_at })));
+      }
+      if (watchedRes.status === "fulfilled" && watchedRes.value.data) {
+        setWatched(new Set(watchedRes.value.data.map(e => e.show_id)));
+        watchedRes.value.data.forEach(e => { if (e.show_data) showCache.current.set(e.show_id, e.show_data); });
+      }
+      if (showResults.status === "fulfilled") {
+        const [t, p, tr] = showResults.value;
         setTrending(t); setPopular(p); setTopRated(tr);
         [...t, ...p, ...tr].forEach(s => showCache.current.set(s.id, s));
-      } catch (e) {
+      } else {
         setError("Failed to load shows. Please refresh and try again.");
-      } finally {
-        setLoading(false);
       }
-    })();
+      setLoading(false);
+    }
+    init().catch(() => { setError("Failed to initialize. Please refresh."); setLoading(false); });
   }, []);
 
   // Search
@@ -573,7 +599,7 @@ export default function ShowLog() {
             <span style={{ fontSize: 16 }}>📺</span>
             <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 700, color: "#456" }}>ShowLog</span>
           </div>
-          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: "#345" }}>Powered by Claude AI + TMDB Data</p>
+          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: "#345" }}>Powered by TMDB · v{__APP_VERSION__}</p>
         </div>
       </footer>
 

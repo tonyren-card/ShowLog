@@ -1,10 +1,33 @@
 # ShowLog — Roadmap & Feature Tracker
 
-**Last updated:** Apr 1, 2026 | [classy-alpaca-fd100e.netlify.app](https://classy-alpaca-fd100e.netlify.app) | Stack: React + Vite + Netlify Functions + Anthropic API + localStorage
+**Last updated:** Apr 4, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
 
 ---
 
 ## 🚀 Releases
+
+### v1.0 — Apr 4, 2026
+
+#### v1.0.1
+<sub>Deployed 2026-04-04 to Netlify</sub>
+
+**Supabase backend — data now persists across devices.**
+
+##### Features
+- **INF-03: Supabase Backend** — Replaced in-memory state with Supabase. Schema: `watchlist_entries`, `diary_entries`, `watched_shows` — all with `user_id`, `show_id`, `show_data jsonb`, and timestamps. Row-level security enabled so each user can only access their own data. Anonymous sessions via Supabase Auth ensure data persists per-browser with no sign-up required.
+
+---
+
+#### v1.0.0
+<sub>Deployed 2026-04-04 to Netlify</sub>
+
+**Direct TMDB API integration and version number display.**
+
+##### Features
+- **INF-02: TMDB Direct API Integration** — Replaced all Claude + web_search show-data calls with direct TMDB REST API calls. Endpoints: `GET /3/trending/tv/week`, `GET /3/tv/popular`, `GET /3/tv/top_rated`, `GET /3/search/tv`, `GET /3/tv/{id}`, `GET /3/tv/{id}/credits`. Real poster/backdrop paths — no more hallucinated data. All three homepage categories now load in parallel. `VITE_TMDB_API_KEY` stored as Netlify env var.
+- **Version display** — Version number injected at build time from `package.json` via Vite `define`. Displayed in the footer as `v{version}`.
+
+---
 
 ### v0.2 — Apr 1, 2026
 
@@ -46,8 +69,6 @@
 
 | ID | Item | Type | Priority | Details |
 |----|------|------|----------|---------|
-| INF-02 | **TMDB Direct API Integration** | Infra | **High** | Replace all Claude + web_search show-data calls with direct TMDB REST API calls. TMDB has a free API (themoviedb.org) with endpoints for search, trending, top-rated, on-the-air, and show details. (1) Register for a TMDB API key and store as Netlify env var (`TMDB_API_KEY`), (2) add a `netlify/functions/tmdb.js` proxy to forward requests without exposing the key client-side, (3) replace `fetchTMDBViaSearch()` and `fetchShowCategory()` with direct TMDB calls — `GET /3/search/tv`, `GET /3/trending/tv/week`, `GET /3/tv/top_rated`, `GET /3/tv/on_the_air`, `GET /3/tv/{id}`, (4) TMDB returns real `poster_path` and `backdrop_path` values, so images will be reliable. This eliminates hallucinated TMDB IDs and broken poster paths from the current Claude-mediated approach. Keep Claude for features that genuinely need it (e.g. recommendations, natural language queries). |
-| INF-03 | **Supabase Backend** | Infra | **High** | Replace `localStorage` with a real database so data persists across devices and sets up the foundation for social features. (1) Create a Supabase project, (2) schema: `users`, `watchlist_entries` (user_id, show_id, tmdb_data jsonb, added_at), `diary_entries` (user_id, show_id, watched_at, season, notes, rating), `show_ratings` (user_id, show_id, rating, rated_at), (3) add Supabase client to the frontend, (4) migrate localStorage reads/writes to Supabase queries. Auth is a prerequisite — at minimum anonymous sessions so data is persisted per-browser until the user creates an account. |
 | INF-04 | **User Authentication** | Infra | **High** | Add Supabase Auth so users have real accounts and data persists across devices. (1) Email + password sign-up/login as the baseline, (2) optionally add Google OAuth for frictionless onboarding, (3) auth gate: app works in read-only browse mode when logged out, but Watchlist/Diary/Ratings require sign-in, (4) user profile page showing username, member since, and stats summary. **Depends on:** INF-03 (Supabase). |
 
 ---
@@ -74,8 +95,10 @@
 
 | ID | Item | Type | Completed |
 |----|------|------|-----------|
-| INF-01 | **Netlify Deploy + API Proxy** — App live at classy-alpaca-fd100e.netlify.app. Netlify Function proxies Anthropic API server-side; key stored as env var. Fixed stray `next`/`react-scripts` deps, misplaced `index.html`, outdated model ID. | Infra → Done | Apr 1 |
-| FEA-01 | **Show Search** — Claude + web_search proxying TMDB, returns up to 12 results with poster/overview/genres. | Feature → Done | Apr 1 |
+| INF-03 | **Supabase Backend** — Watchlist, diary, and watched state persisted to Supabase. Anonymous sessions via Supabase Auth. RLS-secured tables: `watchlist_entries`, `diary_entries`, `watched_shows`. | Infra → Done | Apr 4 |
+| INF-02 | **TMDB Direct API Integration** — Replaced Claude + web_search with direct TMDB REST API calls. Parallel category loading. Real poster/backdrop paths. `VITE_TMDB_API_KEY` as Netlify env var. | Infra → Done | Apr 4 |
+| INF-01 | **Netlify Deploy + API Proxy** — App live at showlogd.netlify.app. Netlify Function proxies Anthropic API server-side; key stored as env var. Fixed stray `next`/`react-scripts` deps, misplaced `index.html`, outdated model ID. | Infra → Done | Apr 1 |
+| FEA-01 | **Show Search** — Search for TV shows via TMDB, returns up to 12 results with poster/overview/genres. | Feature → Done | Apr 1 |
 | FEA-02 | **Browsable Categories** — Trending, Top Rated, Currently Airing via Claude + web_search. | Feature → Done | Apr 1 |
 | FEA-03 | **Show Detail Modal** — Backdrop, title, genres, rating, overview, action buttons. | Feature → Done | Apr 1 |
 | FEA-04 | **Watchlist** — Add/remove with localStorage persistence. | Feature → Done | Apr 1 |
