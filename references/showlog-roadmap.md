@@ -1,12 +1,30 @@
 # ShowLog — Roadmap & Feature Tracker
 
-**Last updated:** Apr 4, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
+**Last updated:** Apr 8, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
 
 ---
 
 ## 🚀 Releases
 
 ### v1.0 — Apr 4, 2026
+
+#### v1.0.2
+<sub>Deployed 2026-04-08 to Netlify</sub>
+
+**User authentication, diary editing, and date logging.**
+
+##### Features
+- **INF-04: User Authentication** — Added Supabase Auth with email + password sign-up/login. `AuthModal` component handles both modes with inline error and confirmation messaging. App works in read-only browse mode when logged out; Watchlist, Diary, and rating actions require sign-in and prompt the `AuthModal` when triggered unauthenticated. `onAuthStateChange` listener handles session restore, data reload on sign-in, and state clear on sign-out.
+- **Username support** — Users can set a display username (stored in Supabase user metadata). Profile page shows username with an inline edit field (✎); email shown as secondary if a username is set. Header avatar uses first letter of username (falls back to email initial). Username persists across sessions via `user.user_metadata.username`.
+- **Profile page** — Shows display name, email, member-since date, Watched/Diary/Watchlist stats, and a Sign Out button.
+- **Diary entry editing** — Each diary row now has a pencil (✎) button that opens an inline edit form. Users can update the date watched, star rating, and review text. Save does an optimistic state update then persists to Supabase; Cancel restores original values.
+- **Diary entry deletion** — Delete button inside the edit form with a two-step confirm ("Remove this entry? / Yes, delete / No") to prevent accidental removal. Optimistic removal from state with background Supabase delete.
+- **Date picker for logging** — The "Log / Review" form in the show detail modal now includes a "Date Watched" date input (capped at today) so users can backfill past entries. Defaults to today; resets after saving.
+
+##### Fixes
+- **Watched toggle bug** — Logging a show via the diary was calling `toggleWatched` unconditionally, which unwatched already-watched shows. Fixed to only mark as watched if the show wasn't already in the watched set.
+
+---
 
 #### v1.0.1
 <sub>Deployed 2026-04-04 to Netlify</sub>
@@ -69,7 +87,8 @@
 
 | ID | Item | Type | Priority | Details |
 |----|------|------|----------|---------|
-| INF-04 | **User Authentication** | Infra | **High** | Add Supabase Auth so users have real accounts and data persists across devices. (1) Email + password sign-up/login as the baseline, (2) optionally add Google OAuth for frictionless onboarding, (3) auth gate: app works in read-only browse mode when logged out, but Watchlist/Diary/Ratings require sign-in, (4) user profile page showing username, member since, and stats summary. **Depends on:** INF-03 (Supabase). |
+| FEA-07 | **Season & Episode Tracking** | Feature | High | Let users log at the episode or season level rather than just per-show. Track "currently watching", "up to S03E05", "completed season 2". Show detail page would have a season accordion where each episode can be checked off. Progress bar per show on the watchlist. This is the core differentiator from a simple "have I seen it" tracker — granular progress is what makes ShowLog sticky. |
+| FEA-08 | **Year in Review / Stats Page** | Feature | High | Annual wrapped-style stats: total shows watched, total episodes, top genres, most-watched network, average rating, watching streaks, first and last log of the year. Shareable as an image card (like Letterboxd's year in review). Data comes from diary entries + Supabase aggregations. |
 
 ---
 

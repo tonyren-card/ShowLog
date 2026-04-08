@@ -140,8 +140,10 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
   const [loading, setLoading] = useState(true);
   const [userRating, setUserRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
+  const [logDate, setLogDate] = useState(new Date().toISOString().split("T")[0]);
   const [showReviewInput, setShowReviewInput] = useState(false);
   const [tab, setTab] = useState("about");
+  const today = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
     setLoading(true);
@@ -184,16 +186,23 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
 
           {showReviewInput && (
             <div style={{ background: "#1c2228", borderRadius: 12, padding: 20, marginBottom: 24, border: "1px solid #2c3440", animation: "fadeIn 0.3s" }}>
-              <div style={{ marginBottom: 16 }}>
-                <span style={{ fontSize: 13, color: "#9ab", marginRight: 12 }}>Your Rating</span>
-                <StarRating rating={userRating} size={24} interactive onChange={setUserRating} />
+              <div style={{ display: "flex", gap: 24, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+                <div>
+                  <div style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>Date Watched</div>
+                  <input type="date" value={logDate} onChange={e => setLogDate(e.target.value)} max={today}
+                    style={{ background: "#14181c", border: "1px solid #2c3440", borderRadius: 6, color: "#cde", padding: "7px 10px", fontSize: 13, fontFamily: "'DM Mono',monospace" }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Your Rating</div>
+                  <StarRating rating={userRating} size={24} interactive onChange={setUserRating} />
+                </div>
               </div>
               <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} placeholder="Add your review..."
                 style={{ width: "100%", minHeight: 100, background: "#14181c", border: "1px solid #2c3440", borderRadius: 8, color: "#cde", padding: 14, fontFamily: "'DM Sans',sans-serif", fontSize: 14, resize: "vertical", outline: "none", boxSizing: "border-box" }} />
               <button onClick={() => {
                 if (userRating > 0) {
-                  addToDiary({ showId: show.id, showData: d, rating: userRating, review: reviewText, date: new Date().toISOString().split("T")[0] });
-                  setShowReviewInput(false); setReviewText(""); setUserRating(0);
+                  addToDiary({ showId: show.id, showData: d, rating: userRating, review: reviewText, date: logDate });
+                  setShowReviewInput(false); setReviewText(""); setUserRating(0); setLogDate(today);
                 }
               }} style={{ marginTop: 12, background: userRating > 0 ? "#00e054" : "#2c3440", color: userRating > 0 ? "#14181c" : "#567", border: "none", padding: "10px 24px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: userRating > 0 ? "pointer" : "default" }}>Save Entry</button>
             </div>
@@ -261,6 +270,233 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
   );
 };
 
+// ── Diary Entry ──
+const DiaryEntry = ({ entry, index, onUpdate, onDelete, onShowClick }) => {
+  const today = new Date().toISOString().split("T")[0];
+  const [editing, setEditing] = useState(false);
+  const [draftRating, setDraftRating] = useState(entry.rating || 0);
+  const [draftReview, setDraftReview] = useState(entry.review || "");
+  const [draftDate, setDraftDate] = useState(entry.date || today);
+  const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const show = entry.showData;
+  if (!show) return null;
+
+  const save = async () => {
+    setSaving(true);
+    await onUpdate(entry.id, { rating: draftRating, review: draftReview, date: draftDate });
+    setEditing(false);
+    setSaving(false);
+  };
+
+  const rowBg = index % 2 === 0 ? "#14181c" : "transparent";
+
+  return (
+    <div style={{ animation: `fadeSlideUp 0.4s ease ${index * 60}ms both` }}>
+      {!editing ? (
+        <div onClick={() => onShowClick(show)}
+          style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 16px", background: rowBg, borderRadius: 8, cursor: "pointer", transition: "background 0.2s" }}
+          onMouseEnter={e => e.currentTarget.style.background = "#1c2228"}
+          onMouseLeave={e => e.currentTarget.style.background = rowBg}>
+          <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: "#567", width: 90, flexShrink: 0 }}>{entry.date}</span>
+          <div style={{ width: 36, height: 54, borderRadius: 4, overflow: "hidden", flexShrink: 0, background: "#1c2228" }}>
+            {posterUrl(show.poster_path, "w92") ? <img src={posterUrl(show.poster_path, "w92")} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Placeholder />}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 14, color: "#fff" }}>{show.name}</div>
+            {entry.review && <div style={{ fontSize: 12, color: "#678", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.review}</div>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: 3 }}>
+              {[...Array(entry.rating || 0)].map((_, j) => <span key={j} style={{ color: "#00e054", fontSize: 14 }}>★</span>)}
+            </div>
+            <button onClick={e => { e.stopPropagation(); setDraftRating(entry.rating || 0); setDraftReview(entry.review || ""); setDraftDate(entry.date || today); setEditing(true); }}
+              style={{ background: "none", border: "none", color: "#456", fontSize: 15, cursor: "pointer", padding: "4px 6px", borderRadius: 6, lineHeight: 1 }}>✎</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ background: "#1c2228", borderRadius: 8, padding: 16, margin: "2px 0", border: "1px solid #2c3440" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <div style={{ width: 36, height: 54, borderRadius: 4, overflow: "hidden", flexShrink: 0, background: "#14181c" }}>
+              {posterUrl(show.poster_path, "w92") ? <img src={posterUrl(show.poster_path, "w92")} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Placeholder />}
+            </div>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 14, color: "#fff" }}>{show.name}</div>
+              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-end" }}>
+                <div>
+                  <div style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Date Watched</div>
+                  <input type="date" value={draftDate} onChange={e => setDraftDate(e.target.value)} max={today}
+                    style={{ background: "#0d1117", border: "1px solid #2c3440", borderRadius: 6, color: "#cde", padding: "6px 10px", fontSize: 13, fontFamily: "'DM Mono',monospace" }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Rating</div>
+                  <StarRating rating={draftRating} size={20} interactive onChange={setDraftRating} />
+                </div>
+              </div>
+              <textarea value={draftReview} onChange={e => setDraftReview(e.target.value)} placeholder="Add your review..."
+                style={{ background: "#0d1117", border: "1px solid #2c3440", borderRadius: 6, color: "#cde", padding: 10, fontSize: 13, fontFamily: "'DM Sans',sans-serif", resize: "vertical", minHeight: 70, outline: "none", width: "100%", boxSizing: "border-box" }} />
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={save} disabled={saving || draftRating === 0}
+                    style={{ background: draftRating > 0 ? "#00e054" : "#2c3440", color: draftRating > 0 ? "#14181c" : "#567", border: "none", borderRadius: 6, padding: "8px 18px", fontWeight: 700, fontSize: 13, cursor: draftRating > 0 && !saving ? "pointer" : "default" }}>
+                    {saving ? "Saving…" : "Save"}
+                  </button>
+                  <button onClick={() => { setEditing(false); setConfirmingDelete(false); }}
+                    style={{ background: "transparent", border: "1px solid #456", color: "#9ab", borderRadius: 6, padding: "8px 14px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Cancel</button>
+                </div>
+                {!confirmingDelete ? (
+                  <button onClick={() => setConfirmingDelete(true)}
+                    style={{ background: "transparent", border: "1px solid #5a2020", color: "#a05050", borderRadius: 6, padding: "8px 14px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Delete</button>
+                ) : (
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: "#9ab" }}>Remove this entry?</span>
+                    <button onClick={() => onDelete(entry.id)}
+                      style={{ background: "#7f1d1d", color: "#fca5a5", border: "none", borderRadius: 6, padding: "6px 12px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Yes, delete</button>
+                    <button onClick={() => setConfirmingDelete(false)}
+                      style={{ background: "transparent", border: "1px solid #456", color: "#9ab", borderRadius: 6, padding: "6px 10px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>No</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Profile View ──
+const ProfileView = ({ user, setUser, watched, diary, watchlist, showCache, handleShowClick }) => {
+  const username = user.user_metadata?.username || "";
+  const [editing, setEditing] = useState(false);
+  const [input, setInput] = useState(username);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const displayName = username || user.email;
+  const avatarLetter = (username?.[0] || user.email?.[0] || "U").toUpperCase();
+
+  const saveUsername = async () => {
+    const trimmed = input.trim();
+    if (!trimmed) { setError("Username can't be empty."); return; }
+    setSaving(true); setError("");
+    const { data, error: err } = await supabase.auth.updateUser({ data: { username: trimmed } });
+    if (err) { setError(err.message); setSaving(false); return; }
+    setUser(data.user);
+    setEditing(false);
+    setSaving(false);
+  };
+
+  return (
+    <>
+      <div style={{ display: "flex", gap: 32, marginBottom: 40, alignItems: "center", animation: "fadeIn 0.5s", flexWrap: "wrap" }}>
+        <div style={{ width: 96, height: 96, borderRadius: "50%", background: "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, fontWeight: 900, color: "#14181c", fontFamily: "'Playfair Display',serif", animation: "pulseGlow 3s ease infinite", flexShrink: 0 }}>
+          {avatarLetter}
+        </div>
+        <div style={{ flex: 1 }}>
+          {editing ? (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+              <input value={input} onChange={e => { setInput(e.target.value); setError(""); }} onKeyDown={e => { if (e.key === "Enter") saveUsername(); if (e.key === "Escape") setEditing(false); }} autoFocus placeholder="Enter username"
+                style={{ background: "#1c2228", border: "1px solid #00e054", borderRadius: 8, color: "#fff", padding: "8px 14px", fontSize: 22, fontFamily: "'Playfair Display',serif", fontWeight: 700, width: 260, outline: "none" }} />
+              <button onClick={saveUsername} disabled={saving} style={{ background: "#00e054", color: "#14181c", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, cursor: saving ? "default" : "pointer" }}>{saving ? "Saving…" : "Save"}</button>
+              <button onClick={() => { setEditing(false); setInput(username); setError(""); }} style={{ background: "transparent", border: "1px solid #456", color: "#9ab", borderRadius: 8, padding: "8px 14px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Cancel</button>
+              {error && <p style={{ fontSize: 13, color: "#ff6b6b", margin: 0, width: "100%" }}>{error}</p>}
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+              <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 700, color: "#fff", margin: 0 }}>{displayName}</h2>
+              <button onClick={() => { setInput(username); setEditing(true); }} title="Edit username" style={{ background: "none", border: "none", color: "#567", fontSize: 16, cursor: "pointer", padding: "4px 6px", borderRadius: 6, lineHeight: 1 }}>✎</button>
+            </div>
+          )}
+          {username && <p style={{ fontSize: 13, color: "#456", marginBottom: 4 }}>{user.email}</p>}
+          <p style={{ fontSize: 13, color: "#567", marginBottom: 16 }}>Member since {new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
+          <div style={{ display: "flex", gap: 32, marginBottom: 20 }}>
+            {[["Watched", watched.size, "#00e054"], ["Diary", diary.length, "#fff"], ["Watchlist", watchlist.size, "#fff"]].map(([label, val, color]) => (
+              <div key={label}><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 24, fontWeight: 700, color }}>{val}</div><div style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1 }}>{label}</div></div>
+            ))}
+          </div>
+          <button onClick={() => supabase.auth.signOut()} style={{ background: "transparent", border: "1px solid #456", color: "#9ab", borderRadius: 8, padding: "8px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Sign Out</button>
+        </div>
+      </div>
+      {watched.size > 0 && (
+        <>
+          <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 16 }}>Recently Watched</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16 }}>
+            {[...watched].slice(-6).reverse().map((id, i) => { const s = showCache.current.get(id); return s ? <ShowCard key={id} show={s} onClick={handleShowClick} delay={i * 70} /> : null; })}
+          </div>
+        </>
+      )}
+    </>
+  );
+};
+
+// ── Auth Modal ──
+const AuthModal = ({ onClose }) => {
+  const [mode, setMode] = useState("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setMessage("");
+    setSubmitting(true);
+    try {
+      if (mode === "signin") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) setMessage(error.message);
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) setMessage(error.message);
+        else setMessage("Check your email to confirm your account, then sign in.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const inputStyle = { width: "100%", background: "#14181c", border: "1px solid #2c3440", borderRadius: 8, color: "#cde", padding: "10px 14px", fontSize: 14, fontFamily: "'DM Sans',sans-serif", boxSizing: "border-box" };
+  const isError = message && !message.includes("Check your email");
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(20px)", display: "flex", alignItems: "center", justifyContent: "center", animation: "fadeIn 0.2s" }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#14181c", borderRadius: 16, border: "1px solid #2c3440", padding: 40, width: 380, animation: "slideUp 0.3s cubic-bezier(0.16,1,0.3,1)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #00e054, #00b848)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>📺</div>
+          <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, fontWeight: 900, color: "#fff" }}>ShowLog</span>
+        </div>
+        <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{mode === "signin" ? "Welcome back" : "Create account"}</h2>
+        <p style={{ fontSize: 13, color: "#678", marginBottom: 24 }}>{mode === "signin" ? "Sign in to access your watchlist and diary." : "Track what you watch, rate your favorites."}</p>
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required style={inputStyle} />
+          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required style={inputStyle} />
+          {message && <p style={{ fontSize: 13, color: isError ? "#ff6b6b" : "#00e054", margin: 0 }}>{message}</p>}
+          <button type="submit" disabled={submitting} style={{ background: submitting ? "#2c3440" : "#00e054", color: submitting ? "#567" : "#14181c", border: "none", borderRadius: 8, padding: "12px 0", fontWeight: 700, fontSize: 14, cursor: submitting ? "default" : "pointer", transition: "all 0.2s" }}>
+            {submitting ? "Please wait…" : mode === "signin" ? "Sign In" : "Create Account"}
+          </button>
+        </form>
+        <p style={{ textAlign: "center", fontSize: 13, color: "#678", marginTop: 20 }}>
+          {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
+          <button onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setMessage(""); }} style={{ background: "none", border: "none", color: "#00e054", cursor: "pointer", fontWeight: 600, fontSize: 13, padding: 0 }}>
+            {mode === "signin" ? "Sign Up" : "Sign In"}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ── Auth Gate Banner ──
+const AuthBanner = ({ onSignIn, message }) => (
+  <div style={{ textAlign: "center", padding: 80, color: "#456" }}>
+    <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+    <p style={{ fontSize: 16, fontWeight: 600, color: "#9ab", marginBottom: 8 }}>{message}</p>
+    <p style={{ fontSize: 14, marginBottom: 24 }}>Sign in to access this feature</p>
+    <button onClick={onSignIn} style={{ background: "#00e054", color: "#14181c", border: "none", borderRadius: 8, padding: "12px 28px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Sign In / Create Account</button>
+  </div>
+);
+
 // ── Main App ──
 export default function ShowLog() {
   const [currentView, setCurrentView] = useState("home");
@@ -278,101 +514,134 @@ export default function ShowLog() {
   const [watchlist, setWatchlist] = useState(new Set());
   const [watched, setWatched] = useState(new Set());
   const [diary, setDiary] = useState([]);
-  const [userId, setUserId] = useState(null);
+  const [user, setUser] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const showCache = useRef(new Map());
 
+  const requireAuth = () => { if (!user) { setShowAuthModal(true); return false; } return true; };
+
+  const loadUserData = useCallback(async (uid) => {
+    const [watchlistRes, diaryRes, watchedRes] = await Promise.allSettled([
+      supabase.from("watchlist_entries").select("show_id, show_data").eq("user_id", uid),
+      supabase.from("diary_entries").select("*").eq("user_id", uid).order("watched_at", { ascending: false }),
+      supabase.from("watched_shows").select("show_id, show_data").eq("user_id", uid),
+    ]);
+    if (watchlistRes.status === "fulfilled" && watchlistRes.value.data) {
+      setWatchlist(new Set(watchlistRes.value.data.map(e => e.show_id)));
+      watchlistRes.value.data.forEach(e => { if (e.show_data) showCache.current.set(e.show_id, e.show_data); });
+    }
+    if (diaryRes.status === "fulfilled" && diaryRes.value.data) {
+      setDiary(diaryRes.value.data.map(e => ({ id: e.id, showId: e.show_id, showData: e.show_data, rating: e.rating, review: e.notes, date: e.watched_at })));
+    }
+    if (watchedRes.status === "fulfilled" && watchedRes.value.data) {
+      setWatched(new Set(watchedRes.value.data.map(e => e.show_id)));
+      watchedRes.value.data.forEach(e => { if (e.show_data) showCache.current.set(e.show_id, e.show_data); });
+    }
+  }, []);
+
   const toggleWatchlist = async (id, showData) => {
-    if (!userId) return;
+    if (!requireAuth()) return;
+    const uid = user.id;
     const data = showData || showCache.current.get(id);
     if (watchlist.has(id)) {
       setWatchlist(prev => { const n = new Set(prev); n.delete(id); return n; });
-      await supabase.from("watchlist_entries").delete().eq("user_id", userId).eq("show_id", id);
+      await supabase.from("watchlist_entries").delete().eq("user_id", uid).eq("show_id", id);
     } else {
       setWatchlist(prev => { const n = new Set(prev); n.add(id); return n; });
-      await supabase.from("watchlist_entries").upsert({ user_id: userId, show_id: id, show_data: data });
+      await supabase.from("watchlist_entries").upsert({ user_id: uid, show_id: id, show_data: data });
     }
   };
 
   const toggleWatched = async (id, showData) => {
-    if (!userId) return;
+    if (!requireAuth()) return;
+    const uid = user.id;
     const data = showData || showCache.current.get(id);
     if (watched.has(id)) {
       setWatched(prev => { const n = new Set(prev); n.delete(id); return n; });
-      await supabase.from("watched_shows").delete().eq("user_id", userId).eq("show_id", id);
+      await supabase.from("watched_shows").delete().eq("user_id", uid).eq("show_id", id);
     } else {
       setWatched(prev => { const n = new Set(prev); n.add(id); return n; });
-      await supabase.from("watched_shows").upsert({ user_id: userId, show_id: id, show_data: data });
+      await supabase.from("watched_shows").upsert({ user_id: uid, show_id: id, show_data: data });
     }
   };
 
   const addToDiary = async (entry) => {
-    if (!userId) return;
-    setDiary(prev => [entry, ...prev]);
+    if (!requireAuth()) return;
+    const uid = user.id;
     if (entry.showData) showCache.current.set(entry.showId, entry.showData);
-    await Promise.all([
+    const tasks = [
       supabase.from("diary_entries").insert({
-        user_id: userId,
+        user_id: uid,
         show_id: entry.showId,
         show_data: entry.showData,
         watched_at: entry.date,
         notes: entry.review,
         rating: entry.rating,
-      }),
-      toggleWatched(entry.showId, entry.showData),
-    ]);
+      }).select("id").single(),
+    ];
+    if (!watched.has(entry.showId)) {
+      tasks.push(toggleWatched(entry.showId, entry.showData));
+    }
+    const [insertResult] = await Promise.all(tasks);
+    setDiary(prev => [{ ...entry, id: insertResult.data?.id }, ...prev]);
+  };
+
+  const updateDiaryEntry = async (entryId, updates) => {
+    setDiary(prev => prev.map(e => e.id === entryId ? { ...e, ...updates } : e));
+    await supabase.from("diary_entries").update({
+      watched_at: updates.date,
+      notes: updates.review,
+      rating: updates.rating,
+    }).eq("id", entryId).eq("user_id", user.id);
+  };
+
+  const deleteDiaryEntry = async (entryId) => {
+    setDiary(prev => prev.filter(e => e.id !== entryId));
+    await supabase.from("diary_entries").delete().eq("id", entryId).eq("user_id", user.id);
   };
 
   const handleShowClick = (show) => { setSelectedShow(show); showCache.current.set(show.id, show); };
 
-  // Initialize Supabase session and load user data + shows
+  // Load TMDB shows + restore session on mount
   useEffect(() => {
     setLoading(true);
     async function init() {
-      // Establish anonymous session
       const { data: { session } } = await supabase.auth.getSession();
-      let uid;
-      if (session) {
-        uid = session.user.id;
-      } else {
-        const { data } = await supabase.auth.signInAnonymously();
-        uid = data?.user?.id;
+      if (session?.user) {
+        setUser(session.user);
+        await loadUserData(session.user.id);
       }
-      setUserId(uid);
-
-      // Load user data + show categories in parallel
-      const [watchlistRes, diaryRes, watchedRes, showResults] = await Promise.allSettled([
-        supabase.from("watchlist_entries").select("show_id, show_data").eq("user_id", uid),
-        supabase.from("diary_entries").select("*").eq("user_id", uid).order("watched_at", { ascending: false }),
-        supabase.from("watched_shows").select("show_id, show_data").eq("user_id", uid),
-        Promise.all([
-          fetchShowCategory("trending"),
-          fetchShowCategory("most popular"),
-          fetchShowCategory("top rated critically acclaimed"),
-        ]),
+      const showResults = await Promise.allSettled([
+        fetchShowCategory("trending"),
+        fetchShowCategory("most popular"),
+        fetchShowCategory("top rated critically acclaimed"),
       ]);
-
-      if (watchlistRes.status === "fulfilled" && watchlistRes.value.data) {
-        setWatchlist(new Set(watchlistRes.value.data.map(e => e.show_id)));
-        watchlistRes.value.data.forEach(e => { if (e.show_data) showCache.current.set(e.show_id, e.show_data); });
-      }
-      if (diaryRes.status === "fulfilled" && diaryRes.value.data) {
-        setDiary(diaryRes.value.data.map(e => ({ showId: e.show_id, showData: e.show_data, rating: e.rating, review: e.notes, date: e.watched_at })));
-      }
-      if (watchedRes.status === "fulfilled" && watchedRes.value.data) {
-        setWatched(new Set(watchedRes.value.data.map(e => e.show_id)));
-        watchedRes.value.data.forEach(e => { if (e.show_data) showCache.current.set(e.show_id, e.show_data); });
-      }
-      if (showResults.status === "fulfilled") {
-        const [t, p, tr] = showResults.value;
-        setTrending(t); setPopular(p); setTopRated(tr);
-        [...t, ...p, ...tr].forEach(s => showCache.current.set(s.id, s));
-      } else {
-        setError("Failed to load shows. Please refresh and try again.");
-      }
+      const [t, p, tr] = showResults.map(r => r.status === "fulfilled" ? r.value : []);
+      if (t.length) { setTrending(t); setPopular(p); setTopRated(tr); [...t, ...p, ...tr].forEach(s => showCache.current.set(s.id, s)); }
+      else setError("Failed to load shows. Please refresh and try again.");
       setLoading(false);
     }
     init().catch(() => { setError("Failed to initialize. Please refresh."); setLoading(false); });
-  }, []);
+  }, [loadUserData]);
+
+  // Auth state changes (sign in / sign out)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        setUser(session.user);
+        await loadUserData(session.user.id);
+        setShowAuthModal(false);
+      } else if (event === "USER_UPDATED" && session?.user) {
+        setUser(session.user);
+      } else if (event === "SIGNED_OUT") {
+        setUser(null);
+        setWatchlist(new Set());
+        setWatched(new Set());
+        setDiary([]);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [loadUserData]);
 
   // Search
   useEffect(() => {
@@ -422,11 +691,22 @@ export default function ShowLog() {
               </button>
             ))}
           </nav>
-          <div style={{ position: "relative" }}>
-            <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); if (e.target.value) setCurrentView("search"); }}
-              onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} placeholder="Search TV shows..."
-              style={{ background: searchFocused ? "#1c2228" : "#14181c", border: searchFocused ? "1px solid #00e054" : "1px solid #2c3440", borderRadius: 8, color: "#cde", padding: "8px 14px 8px 36px", fontSize: 13, width: searchFocused ? 280 : 220, transition: "all 0.3s" }} />
-            <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "#567" }}>⌕</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ position: "relative" }}>
+              <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); if (e.target.value) setCurrentView("search"); }}
+                onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} placeholder="Search TV shows..."
+                style={{ background: searchFocused ? "#1c2228" : "#14181c", border: searchFocused ? "1px solid #00e054" : "1px solid #2c3440", borderRadius: 8, color: "#cde", padding: "8px 14px 8px 36px", fontSize: 13, width: searchFocused ? 240 : 200, transition: "all 0.3s" }} />
+              <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "#567" }}>⌕</span>
+            </div>
+            {user ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div onClick={() => { setCurrentView("profile"); setSearchQuery(""); }} title={user.user_metadata?.username || user.email} style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#14181c", cursor: "pointer", flexShrink: 0 }}>
+                  {(user.user_metadata?.username?.[0] || user.email?.[0] || "U").toUpperCase()}
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowAuthModal(true)} style={{ background: "#00e054", color: "#14181c", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>Sign In</button>
+            )}
           </div>
         </div>
       </header>
@@ -437,7 +717,7 @@ export default function ShowLog() {
           <div style={{ textAlign: "center", padding: "60px 0 40px" }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #00e054, #00b848)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 20px" }}>📺</div>
             <LoadingDots text="Loading TV shows from TMDB" />
-            <p style={{ color: "#456", fontSize: 12, marginTop: 8 }}>Powered by Claude + TMDB web search</p>
+            <p style={{ color: "#456", fontSize: 12, marginTop: 8 }}>Powered by TMDB</p>
           </div>
           {/* Skeleton cards */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16, marginTop: 24 }}>
@@ -511,18 +791,24 @@ export default function ShowLog() {
           {/* WATCHLIST */}
           {currentView === "watchlist" && (
             <div style={{ paddingTop: 32 }}>
-              <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Your Watchlist</h2>
-              <p style={{ fontSize: 14, color: "#678", marginBottom: 28 }}>{watchlist.size} show{watchlist.size !== 1 ? "s" : ""} queued</p>
-              {watchlist.size > 0 ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16 }}>
-                  {[...watchlist].map((id, i) => { const s = showCache.current.get(id); return s ? <ShowCard key={id} show={s} onClick={handleShowClick} delay={i * 70} /> : null; })}
-                </div>
+              {!user ? (
+                <AuthBanner onSignIn={() => setShowAuthModal(true)} message="Your watchlist lives here" />
               ) : (
-                <div style={{ textAlign: "center", padding: 80, color: "#456" }}>
-                  <div style={{ fontSize: 48, marginBottom: 16 }}>☆</div>
-                  <p style={{ fontSize: 16, fontWeight: 600 }}>Your watchlist is empty</p>
-                  <p style={{ fontSize: 14, marginTop: 8 }}>Click any show and add it to your watchlist</p>
-                </div>
+                <>
+                  <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Your Watchlist</h2>
+                  <p style={{ fontSize: 14, color: "#678", marginBottom: 28 }}>{watchlist.size} show{watchlist.size !== 1 ? "s" : ""} queued</p>
+                  {watchlist.size > 0 ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16 }}>
+                      {[...watchlist].map((id, i) => { const s = showCache.current.get(id); return s ? <ShowCard key={id} show={s} onClick={handleShowClick} delay={i * 70} /> : null; })}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: 80, color: "#456" }}>
+                      <div style={{ fontSize: 48, marginBottom: 16 }}>☆</div>
+                      <p style={{ fontSize: 16, fontWeight: 600 }}>Your watchlist is empty</p>
+                      <p style={{ fontSize: 14, marginTop: 8 }}>Click any show and add it to your watchlist</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -530,37 +816,25 @@ export default function ShowLog() {
           {/* DIARY */}
           {currentView === "diary" && (
             <div style={{ paddingTop: 32 }}>
-              <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Your Diary</h2>
-              <p style={{ fontSize: 14, color: "#678", marginBottom: 28 }}>Your personal TV journal</p>
-              {diary.length > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  {diary.map((entry, i) => {
-                    const show = entry.showData;
-                    if (!show) return null;
-                    return (
-                      <div key={i} onClick={() => handleShowClick(show)}
-                        style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 16px", background: i % 2 === 0 ? "#14181c" : "transparent", borderRadius: 8, cursor: "pointer", animation: `fadeSlideUp 0.4s ease ${i * 60}ms both`, transition: "background 0.2s" }}
-                        onMouseEnter={e => e.currentTarget.style.background = "#1c2228"} onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "#14181c" : "transparent"}>
-                        <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: "#567", width: 90, flexShrink: 0 }}>{entry.date}</span>
-                        <div style={{ width: 36, height: 54, borderRadius: 4, overflow: "hidden", flexShrink: 0, background: "#1c2228" }}>
-                          {posterUrl(show.poster_path, "w92") ? <img src={posterUrl(show.poster_path, "w92")} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Placeholder />}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, fontSize: 14, color: "#fff" }}>{show.name}</div>
-                          {entry.review && <div style={{ fontSize: 12, color: "#678", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.review}</div>}
-                        </div>
-                        <div style={{ display: "flex", gap: 4 }}>
-                          {[...Array(entry.rating)].map((_, j) => <span key={j} style={{ color: "#00e054", fontSize: 14 }}>★</span>)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              {!user ? (
+                <AuthBanner onSignIn={() => setShowAuthModal(true)} message="Your diary lives here" />
               ) : (
-                <div style={{ textAlign: "center", padding: 80, color: "#456" }}>
-                  <div style={{ fontSize: 48, marginBottom: 16 }}>◔</div>
-                  <p style={{ fontSize: 16, fontWeight: 600 }}>No diary entries yet</p>
-                </div>
+                <>
+                  <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Your Diary</h2>
+                  <p style={{ fontSize: 14, color: "#678", marginBottom: 28 }}>Your personal TV journal</p>
+                  {diary.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {diary.map((entry, i) => (
+                        <DiaryEntry key={entry.id || i} entry={entry} index={i} onUpdate={updateDiaryEntry} onDelete={deleteDiaryEntry} onShowClick={handleShowClick} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: 80, color: "#456" }}>
+                      <div style={{ fontSize: 48, marginBottom: 16 }}>◔</div>
+                      <p style={{ fontSize: 16, fontWeight: 600 }}>No diary entries yet</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -568,25 +842,10 @@ export default function ShowLog() {
           {/* PROFILE */}
           {currentView === "profile" && (
             <div style={{ paddingTop: 32 }}>
-              <div style={{ display: "flex", gap: 32, marginBottom: 40, alignItems: "center", animation: "fadeIn 0.5s" }}>
-                <div style={{ width: 96, height: 96, borderRadius: "50%", background: "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, fontWeight: 900, color: "#14181c", fontFamily: "'Playfair Display',serif", animation: "pulseGlow 3s ease infinite" }}>Y</div>
-                <div>
-                  <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 4 }}>ShowLog User</h2>
-                  <p style={{ fontSize: 14, color: "#678", marginBottom: 12 }}>Powered by Claude + TMDB</p>
-                  <div style={{ display: "flex", gap: 32 }}>
-                    {[["Watched", watched.size, "#00e054"], ["Diary", diary.length, "#fff"], ["Watchlist", watchlist.size, "#fff"]].map(([label, val, color]) => (
-                      <div key={label}><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 24, fontWeight: 700, color }}>{val}</div><div style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1 }}>{label}</div></div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              {watched.size > 0 && (
-                <>
-                  <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 16 }}>Recently Watched</h3>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16 }}>
-                    {[...watched].slice(-6).reverse().map((id, i) => { const s = showCache.current.get(id); return s ? <ShowCard key={id} show={s} onClick={handleShowClick} delay={i * 70} /> : null; })}
-                  </div>
-                </>
+              {!user ? (
+                <AuthBanner onSignIn={() => setShowAuthModal(true)} message="Sign in to see your profile" />
+              ) : (
+                <ProfileView user={user} setUser={setUser} watched={watched} diary={diary} watchlist={watchlist} showCache={showCache} handleShowClick={handleShowClick} />
               )}
             </div>
           )}
@@ -604,6 +863,7 @@ export default function ShowLog() {
       </footer>
 
       {selectedShow && <ShowDetail show={selectedShow} onClose={() => setSelectedShow(null)} watchlist={watchlist} toggleWatchlist={toggleWatchlist} watched={watched} toggleWatched={toggleWatched} addToDiary={addToDiary} />}
+      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
     </div>
   );
 }
