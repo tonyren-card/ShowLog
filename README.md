@@ -3,7 +3,7 @@
 **A Letterboxd-style app for TV shows** — track what you watch, rate your favorites, and discover new series.
 
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react)
-![Version](https://img.shields.io/badge/version-1.0.2-green)
+![Version](https://img.shields.io/badge/version-1.0.3-green)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Features

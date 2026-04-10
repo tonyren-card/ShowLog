@@ -50,6 +50,21 @@ async function fetchShowCategory(category) {
   return data.results.slice(0, 12).map(normalizeShow);
 }
 
+async function fetchSeasonEpisodes(showId, seasonNum) {
+  const data = await tmdb(`/tv/${showId}/season/${seasonNum}`);
+  return data.episodes?.map(e => ({ episode_number: e.episode_number, name: e.name })) || [];
+}
+
+function getLatestEpisode(watchedSet) {
+  if (!watchedSet || watchedSet.size === 0) return null;
+  let maxS = 0, maxE = 0;
+  watchedSet.forEach(key => {
+    const [s, e] = key.split("-").map(Number);
+    if (s > maxS || (s === maxS && e > maxE)) { maxS = s; maxE = e; }
+  });
+  return maxS > 0 ? `S${maxS}E${maxE}` : null;
+}
+
 async function fetchShowDetails(showName, showId) {
   const [details, credits] = await Promise.all([
     tmdb(`/tv/${showId}`),
@@ -103,7 +118,7 @@ const Placeholder = ({ title, aspect }) => (
 const posterUrl = (path, size = "w500") => path ? `${TMDB_IMG}${size}${path}` : null;
 const backdropUrl = (path) => path ? `${TMDB_IMG}w1280${path}` : null;
 
-const ShowCard = ({ show, onClick, delay = 0 }) => {
+const ShowCard = ({ show, onClick, delay = 0, progressCount = 0, progressTotal = 0 }) => {
   const [hovered, setHovered] = useState(false);
   const [imgError, setImgError] = useState(false);
   const img = posterUrl(show.poster_path, "w342");
@@ -122,6 +137,11 @@ const ShowCard = ({ show, onClick, delay = 0 }) => {
       <div style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 600, color: "#00e054", fontFamily: "'DM Mono',monospace", opacity: hovered ? 1 : 0, transition: "opacity 0.2s" }}>
         {show.vote_average?.toFixed?.(1) || "—"}
       </div>
+      {progressCount > 0 && (
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "rgba(0,0,0,0.5)" }}>
+          <div style={{ width: progressTotal > 0 ? `${Math.min(100, (progressCount / progressTotal) * 100)}%` : "0%", height: "100%", background: "#00e054", transition: "width 0.3s" }} />
+        </div>
+      )}
     </div>
   );
 };
@@ -135,13 +155,127 @@ const LoadingDots = ({ text = "Loading" }) => {
   return <span style={{ color: "#567", fontSize: 14 }}>{text}{dots}</span>;
 };
 
-const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggleWatched, addToDiary }) => {
+const SeasonAccordion = ({ showId, seasons, watchedEps, onToggle, onBulkToggle, user }) => {
+  const [openSeasons, setOpenSeasons] = useState(new Set());
+  const [seasonEpisodes, setSeasonEpisodes] = useState(new Map());
+  const [loadingSeasons, setLoadingSeasons] = useState(new Set());
+
+  const toggleSeason = async (sn) => {
+    setOpenSeasons(prev => { const next = new Set(prev); if (next.has(sn)) next.delete(sn); else next.add(sn); return next; });
+    if (!seasonEpisodes.has(sn) && !loadingSeasons.has(sn)) {
+      setLoadingSeasons(prev => new Set([...prev, sn]));
+      try {
+        const eps = await fetchSeasonEpisodes(showId, sn);
+        setSeasonEpisodes(prev => new Map([...prev, [sn, eps]]));
+      } catch (e) { console.error(e); }
+      finally { setLoadingSeasons(prev => { const s = new Set(prev); s.delete(sn); return s; }); }
+    }
+  };
+
+  const handleSeasonCheckbox = async (e, sn, total) => {
+    e.stopPropagation();
+    const watchedInSeason = [...(watchedEps || [])].filter(k => k.startsWith(`${sn}-`)).length;
+    const allWatched = total > 0 && watchedInSeason === total;
+    if (allWatched) {
+      onBulkToggle(showId, [...(watchedEps || [])].filter(k => k.startsWith(`${sn}-`)), false);
+    } else {
+      let eps = seasonEpisodes.get(sn);
+      if (!eps) {
+        setLoadingSeasons(prev => new Set([...prev, sn]));
+        try {
+          eps = await fetchSeasonEpisodes(showId, sn);
+          setSeasonEpisodes(prev => new Map([...prev, [sn, eps]]));
+          setOpenSeasons(prev => new Set([...prev, sn]));
+        } catch (err) { console.error(err); return; }
+        finally { setLoadingSeasons(prev => { const s = new Set(prev); s.delete(sn); return s; }); }
+      }
+      onBulkToggle(showId, eps.map(ep => `${sn}-${ep.episode_number}`), true);
+    }
+  };
+
+  const mainSeasons = seasons.filter(s => s.season_number > 0);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, animation: "fadeIn 0.3s" }}>
+      {mainSeasons.map(season => {
+        const sn = season.season_number;
+        const isOpen = openSeasons.has(sn);
+        const episodes = seasonEpisodes.get(sn) || [];
+        const isLoading = loadingSeasons.has(sn);
+        const total = season.episode_count;
+        const watchedInSeason = [...(watchedEps || [])].filter(k => k.startsWith(`${sn}-`)).length;
+        const pct = total > 0 ? (watchedInSeason / total) * 100 : 0;
+        const isComplete = watchedInSeason > 0 && watchedInSeason === total;
+        return (
+          <div key={sn} style={{ background: "#1c2228", borderRadius: 8, border: "1px solid #2c3440", overflow: "hidden" }}>
+            <div onClick={() => toggleSeason(sn)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", cursor: "pointer" }}
+              onMouseEnter={e => e.currentTarget.style.background = "#222a32"}
+              onMouseLeave={e => e.currentTarget.style.background = ""}>
+              {user && (
+                <div onClick={(e) => handleSeasonCheckbox(e, sn, total)}
+                  style={{ width: 19, height: 19, borderRadius: 4, border: `1.5px solid ${isComplete ? "#00e054" : watchedInSeason > 0 ? "#678" : "#2c3440"}`, background: isComplete ? "#00e054" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", transition: "all 0.15s" }}>
+                  {isComplete && <span style={{ fontSize: 9, color: "#14181c", fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                  {!isComplete && watchedInSeason > 0 && <span style={{ fontSize: 11, color: "#678", fontWeight: 700, lineHeight: 1 }}>–</span>}
+                </div>
+              )}
+              <span style={{ fontSize: 14, color: "#cde", fontWeight: 600, flex: 1 }}>{season.name || `Season ${sn}`}</span>
+              <span style={{ fontSize: 12, color: "#567", fontFamily: "'DM Mono',monospace" }}>{total} ep</span>
+              {watchedInSeason > 0 && (
+                <>
+                  <span style={{ fontSize: 11, fontFamily: "'DM Mono',monospace", fontWeight: 600, color: isComplete ? "#00e054" : "#9ab" }}>
+                    {isComplete ? "✓ Done" : `${watchedInSeason}/${total}`}
+                  </span>
+                  <div style={{ width: 48, height: 3, background: "#2c3440", borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ width: `${pct}%`, height: "100%", background: isComplete ? "#00e054" : "#678", transition: "width 0.3s" }} />
+                  </div>
+                </>
+              )}
+              <span style={{ color: "#456", fontSize: 10, display: "inline-block", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
+            </div>
+            {isOpen && (
+              <div style={{ borderTop: "1px solid #2c3440", padding: "8px 16px 12px", maxHeight: 360, overflowY: "auto" }}>
+                {isLoading ? (
+                  <div style={{ padding: "16px 0" }}><LoadingDots text="Loading episodes" /></div>
+                ) : episodes.length === 0 ? (
+                  <div style={{ padding: "12px 0", color: "#567", fontSize: 13 }}>No episodes found.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {episodes.map(ep => {
+                      const key = `${sn}-${ep.episode_number}`;
+                      const checked = watchedEps?.has(key) ?? false;
+                      return (
+                        <div key={ep.episode_number}
+                          onClick={() => user && onToggle(showId, sn, ep.episode_number)}
+                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 4px", borderRadius: 6, cursor: user ? "pointer" : "default", transition: "background 0.1s" }}
+                          onMouseEnter={e => user && (e.currentTarget.style.background = "#14181c")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                          <div style={{ width: 17, height: 17, borderRadius: 4, border: `1.5px solid ${checked ? "#00e054" : "#2c3440"}`, background: checked ? "#00e054" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
+                            {checked && <span style={{ fontSize: 9, color: "#14181c", fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                          </div>
+                          <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: "#456", width: 28, flexShrink: 0 }}>E{ep.episode_number}</span>
+                          <span style={{ fontSize: 13, color: checked ? "#567" : "#cde", flex: 1, transition: "color 0.15s" }}>{ep.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggleWatched, addToDiary, watchedEps, toggleEpisode, onBulkToggle, totalEpisodes, onTotalsKnown, user }) => {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userRating, setUserRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
   const [logDate, setLogDate] = useState(new Date().toISOString().split("T")[0]);
   const [showReviewInput, setShowReviewInput] = useState(false);
+  const [markingAll, setMarkingAll] = useState(false);
   const [tab, setTab] = useState("about");
   const today = new Date().toISOString().split("T")[0];
 
@@ -149,6 +283,13 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
     setLoading(true);
     fetchShowDetails(show.name, show.id).then(d => { if (d) setDetails(d); }).catch(console.error).finally(() => setLoading(false));
   }, [show.id, show.name]);
+
+  useEffect(() => {
+    if (details?.seasons) {
+      const total = details.seasons.filter(s => s.season_number > 0).reduce((sum, s) => sum + (s.episode_count || 0), 0);
+      if (total > 0) onTotalsKnown?.(show.id, total);
+    }
+  }, [details, show.id]);
 
   const isInWatchlist = watchlist.has(show.id);
   const isWatched = watched.has(show.id);
@@ -169,6 +310,7 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
             <div style={{ display: "flex", gap: 10, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
               <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: "#9ab" }}>{(d.first_air_date || "").slice(0, 4)}</span>
               {details?.number_of_seasons && <><span style={{ color: "#456" }}>•</span><span style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: "#9ab" }}>{details.number_of_seasons} Season{details.number_of_seasons !== 1 ? "s" : ""}</span></>}
+              {watchedEps?.size > 0 && <><span style={{ color: "#456" }}>•</span><span style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: "#00e054" }}>{totalEpisodes > 0 ? `${watchedEps.size}/${totalEpisodes} ep` : `${watchedEps.size} ep watched`}</span></>}
               <span style={{ color: "#456" }}>•</span>
               {(d.genre_names || []).map((g) => <span key={g} style={{ background: "rgba(0,224,84,0.12)", color: "#00e054", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{g}</span>)}
             </div>
@@ -182,6 +324,29 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
             <button onClick={() => toggleWatchlist(show.id, d)} style={{ background: isInWatchlist ? "rgba(0,224,84,0.15)" : "transparent", border: isInWatchlist ? "1px solid #00e054" : "1px solid #456", color: isInWatchlist ? "#00e054" : "#9ab", padding: "10px 20px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, transition: "all 0.2s" }}>
               {isInWatchlist ? "★ In Watchlist" : "☆ Add to Watchlist"}</button>
             <button onClick={() => setShowReviewInput(!showReviewInput)} style={{ background: "transparent", border: "1px solid #456", color: "#9ab", padding: "10px 20px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>✎ Log / Review</button>
+            {user && details?.seasons && (() => {
+              const allWatched = totalEpisodes > 0 && watchedEps?.size === totalEpisodes;
+              return (
+                <button onClick={async () => {
+                  if (markingAll) return;
+                  if (allWatched) {
+                    onBulkToggle(show.id, [...(watchedEps || [])], false);
+                  } else {
+                    setMarkingAll(true);
+                    try {
+                      const mainSeasons = details.seasons.filter(s => s.season_number > 0);
+                      const allEps = await Promise.all(mainSeasons.map(s =>
+                        fetchSeasonEpisodes(show.id, s.season_number).then(eps => eps.map(ep => `${s.season_number}-${ep.episode_number}`))
+                      ));
+                      onBulkToggle(show.id, allEps.flat(), true);
+                    } finally { setMarkingAll(false); }
+                  }
+                }}
+                style={{ background: allWatched ? "rgba(0,224,84,0.15)" : "transparent", border: allWatched ? "1px solid #00e054" : "1px solid #456", color: allWatched ? "#00e054" : "#9ab", padding: "10px 20px", borderRadius: 8, cursor: markingAll ? "default" : "pointer", fontWeight: 600, fontSize: 13, transition: "all 0.2s" }}>
+                  {markingAll ? "Marking…" : allWatched ? "☑ All Episodes" : "☐ Mark All Episodes"}
+                </button>
+              );
+            })()}
           </div>
 
           {showReviewInput && (
@@ -255,14 +420,10 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
           )}
 
           {!loading && tab === "seasons" && details?.seasons && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, animation: "fadeIn 0.3s" }}>
-              {details.seasons.map((s, i) => (
-                <div key={i} style={{ background: "#1c2228", borderRadius: 8, padding: 14, border: "1px solid #2c3440" }}>
-                  <div style={{ fontSize: 14, color: "#cde", fontWeight: 600 }}>{s.name || `Season ${s.season_number}`}</div>
-                  <div style={{ fontSize: 12, color: "#567", marginTop: 4 }}>{s.episode_count} episodes</div>
-                </div>
-              ))}
-            </div>
+            <SeasonAccordion showId={show.id} seasons={details.seasons} watchedEps={watchedEps} onToggle={toggleEpisode} onBulkToggle={onBulkToggle} user={user} />
+          )}
+          {!loading && tab === "seasons" && !details?.seasons && (
+            <div style={{ color: "#567", fontSize: 14, padding: "20px 0" }}>No season data available.</div>
           )}
         </div>
       </div>
@@ -447,7 +608,7 @@ const AuthModal = ({ onClose }) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) setMessage(error.message);
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: "https://showlogd.netlify.app" } });
         if (error) setMessage(error.message);
         else setMessage("Check your email to confirm your account, then sign in.");
       }
@@ -514,6 +675,8 @@ export default function ShowLog() {
   const [watchlist, setWatchlist] = useState(new Set());
   const [watched, setWatched] = useState(new Set());
   const [diary, setDiary] = useState([]);
+  const [episodeProgress, setEpisodeProgress] = useState(new Map());
+  const [showTotals, setShowTotals] = useState(new Map());
   const [user, setUser] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const showCache = useRef(new Map());
@@ -521,10 +684,11 @@ export default function ShowLog() {
   const requireAuth = () => { if (!user) { setShowAuthModal(true); return false; } return true; };
 
   const loadUserData = useCallback(async (uid) => {
-    const [watchlistRes, diaryRes, watchedRes] = await Promise.allSettled([
+    const [watchlistRes, diaryRes, watchedRes, progressRes] = await Promise.allSettled([
       supabase.from("watchlist_entries").select("show_id, show_data").eq("user_id", uid),
       supabase.from("diary_entries").select("*").eq("user_id", uid).order("watched_at", { ascending: false }),
       supabase.from("watched_shows").select("show_id, show_data").eq("user_id", uid),
+      supabase.from("show_progress").select("show_id, watched_episodes, total_episodes").eq("user_id", uid),
     ]);
     if (watchlistRes.status === "fulfilled" && watchlistRes.value.data) {
       setWatchlist(new Set(watchlistRes.value.data.map(e => e.show_id)));
@@ -536,6 +700,16 @@ export default function ShowLog() {
     if (watchedRes.status === "fulfilled" && watchedRes.value.data) {
       setWatched(new Set(watchedRes.value.data.map(e => e.show_id)));
       watchedRes.value.data.forEach(e => { if (e.show_data) showCache.current.set(e.show_id, e.show_data); });
+    }
+    if (progressRes.status === "fulfilled" && progressRes.value.data) {
+      const progressMap = new Map();
+      const totalsMap = new Map();
+      progressRes.value.data.forEach(row => {
+        progressMap.set(row.show_id, new Set(Object.keys(row.watched_episodes || {})));
+        if (row.total_episodes) totalsMap.set(row.show_id, row.total_episodes);
+      });
+      setEpisodeProgress(progressMap);
+      setShowTotals(totalsMap);
     }
   }, []);
 
@@ -600,6 +774,33 @@ export default function ShowLog() {
     await supabase.from("diary_entries").delete().eq("id", entryId).eq("user_id", user.id);
   };
 
+  const toggleEpisode = async (showId, seasonNum, episodeNum) => {
+    if (!requireAuth()) return;
+    const key = `${seasonNum}-${episodeNum}`;
+    const current = episodeProgress.get(showId) || new Set();
+    const updated = new Set(current);
+    if (updated.has(key)) updated.delete(key); else updated.add(key);
+    setEpisodeProgress(prev => { const m = new Map(prev); m.set(showId, updated); return m; });
+    const obj = {};
+    updated.forEach(k => obj[k] = true);
+    await supabase.from("show_progress").upsert({ user_id: user.id, show_id: showId, watched_episodes: obj });
+  };
+
+  const bulkToggleEpisodes = async (showId, keys, mark) => {
+    if (!requireAuth()) return;
+    const current = episodeProgress.get(showId) || new Set();
+    const updated = new Set(current);
+    keys.forEach(key => { if (mark) updated.add(key); else updated.delete(key); });
+    setEpisodeProgress(prev => { const m = new Map(prev); m.set(showId, updated); return m; });
+    const obj = {};
+    updated.forEach(k => obj[k] = true);
+    await supabase.from("show_progress").upsert({ user_id: user.id, show_id: showId, watched_episodes: obj });
+  };
+
+  const handleTotalsKnown = (showId, total) => {
+    setShowTotals(prev => { const m = new Map(prev); m.set(showId, total); return m; });
+  };
+
   const handleShowClick = (show) => { setSelectedShow(show); showCache.current.set(show.id, show); };
 
   // Load TMDB shows + restore session on mount
@@ -638,6 +839,8 @@ export default function ShowLog() {
         setWatchlist(new Set());
         setWatched(new Set());
         setDiary([]);
+        setEpisodeProgress(new Map());
+        setShowTotals(new Map());
       }
     });
     return () => subscription.unsubscribe();
@@ -799,7 +1002,19 @@ export default function ShowLog() {
                   <p style={{ fontSize: 14, color: "#678", marginBottom: 28 }}>{watchlist.size} show{watchlist.size !== 1 ? "s" : ""} queued</p>
                   {watchlist.size > 0 ? (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16 }}>
-                      {[...watchlist].map((id, i) => { const s = showCache.current.get(id); return s ? <ShowCard key={id} show={s} onClick={handleShowClick} delay={i * 70} /> : null; })}
+                      {[...watchlist].map((id, i) => {
+                        const s = showCache.current.get(id);
+                        if (!s) return null;
+                        const eps = episodeProgress.get(id);
+                        const total = showTotals.get(id) || 0;
+                        const latestEp = getLatestEpisode(eps);
+                        return (
+                          <div key={id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            <ShowCard show={s} onClick={handleShowClick} delay={i * 70} progressCount={eps?.size || 0} progressTotal={total} />
+                            {latestEp && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: "#678", textAlign: "center" }}>Up to {latestEp}</div>}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div style={{ textAlign: "center", padding: 80, color: "#456" }}>
@@ -862,7 +1077,7 @@ export default function ShowLog() {
         </div>
       </footer>
 
-      {selectedShow && <ShowDetail show={selectedShow} onClose={() => setSelectedShow(null)} watchlist={watchlist} toggleWatchlist={toggleWatchlist} watched={watched} toggleWatched={toggleWatched} addToDiary={addToDiary} />}
+      {selectedShow && <ShowDetail show={selectedShow} onClose={() => setSelectedShow(null)} watchlist={watchlist} toggleWatchlist={toggleWatchlist} watched={watched} toggleWatched={toggleWatched} addToDiary={addToDiary} watchedEps={episodeProgress.get(selectedShow.id) || new Set()} toggleEpisode={toggleEpisode} onBulkToggle={bulkToggleEpisodes} totalEpisodes={showTotals.get(selectedShow.id) || 0} onTotalsKnown={handleTotalsKnown} user={user} />}
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
     </div>
   );
