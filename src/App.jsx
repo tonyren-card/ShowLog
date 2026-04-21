@@ -306,7 +306,7 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
             {posterUrl(d.poster_path, "w342") ? <img src={posterUrl(d.poster_path, "w342")} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => e.target.parentElement.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#456;font-size:11px">No Poster</div>'} /> : <Placeholder />}
           </div>
           <div style={{ position: "absolute", bottom: 24, left: 140, right: 32 }}>
-            <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: 38, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.1, textShadow: "0 2px 20px rgba(0,0,0,0.5)" }}>{d.name}</h1>
+            <h1 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 38, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.1, textShadow: "0 2px 20px rgba(0,0,0,0.5)" }}>{d.name}</h1>
             <div style={{ display: "flex", gap: 10, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
               <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: "#9ab" }}>{(d.first_air_date || "").slice(0, 4)}</span>
               {details?.number_of_seasons && <><span style={{ color: "#456" }}>•</span><span style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: "#9ab" }}>{details.number_of_seasons} Season{details.number_of_seasons !== 1 ? "s" : ""}</span></>}
@@ -551,21 +551,21 @@ const ProfileView = ({ user, setUser, watched, diary, watchlist, showCache, hand
   return (
     <>
       <div style={{ display: "flex", gap: 32, marginBottom: 40, alignItems: "center", animation: "fadeIn 0.5s", flexWrap: "wrap" }}>
-        <div style={{ width: 96, height: 96, borderRadius: "50%", background: "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, fontWeight: 900, color: "#14181c", fontFamily: "'Playfair Display',serif", animation: "pulseGlow 3s ease infinite", flexShrink: 0 }}>
+        <div style={{ width: 96, height: 96, borderRadius: "50%", background: "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, fontWeight: 900, color: "#14181c", fontFamily: "'Space Grotesk',sans-serif", animation: "pulseGlow 3s ease infinite", flexShrink: 0 }}>
           {avatarLetter}
         </div>
         <div style={{ flex: 1 }}>
           {editing ? (
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
               <input value={input} onChange={e => { setInput(e.target.value); setError(""); }} onKeyDown={e => { if (e.key === "Enter") saveUsername(); if (e.key === "Escape") setEditing(false); }} autoFocus placeholder="Enter username"
-                style={{ background: "#1c2228", border: "1px solid #00e054", borderRadius: 8, color: "#fff", padding: "8px 14px", fontSize: 22, fontFamily: "'Playfair Display',serif", fontWeight: 700, width: 260, outline: "none" }} />
+                style={{ background: "#1c2228", border: "1px solid #00e054", borderRadius: 8, color: "#fff", padding: "8px 14px", fontSize: 22, fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, width: 260, outline: "none" }} />
               <button onClick={saveUsername} disabled={saving} style={{ background: "#00e054", color: "#14181c", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, cursor: saving ? "default" : "pointer" }}>{saving ? "Saving…" : "Save"}</button>
               <button onClick={() => { setEditing(false); setInput(username); setError(""); }} style={{ background: "transparent", border: "1px solid #456", color: "#9ab", borderRadius: 8, padding: "8px 14px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Cancel</button>
               {error && <p style={{ fontSize: 13, color: "#ff6b6b", margin: 0, width: "100%" }}>{error}</p>}
             </div>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 700, color: "#fff", margin: 0 }}>{displayName}</h2>
+              <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 32, fontWeight: 700, color: "#fff", margin: 0 }}>{displayName}</h2>
               <button onClick={() => { setInput(username); setEditing(true); }} title="Edit username" style={{ background: "none", border: "none", color: "#567", fontSize: 16, cursor: "pointer", padding: "4px 6px", borderRadius: 6, lineHeight: 1 }}>✎</button>
             </div>
           )}
@@ -581,7 +581,7 @@ const ProfileView = ({ user, setUser, watched, diary, watchlist, showCache, hand
       </div>
       {watched.size > 0 && (
         <>
-          <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 16 }}>Recently Watched</h3>
+          <h3 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 16 }}>Recently Watched</h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16 }}>
             {[...watched].slice(-6).reverse().map((id, i) => { const s = showCache.current.get(id); return s ? <ShowCard key={id} show={s} onClick={handleShowClick} delay={i * 70} /> : null; })}
           </div>
@@ -624,10 +624,10 @@ const AuthModal = ({ onClose }) => {
     <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(20px)", display: "flex", alignItems: "center", justifyContent: "center", animation: "fadeIn 0.2s" }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#14181c", borderRadius: 16, border: "1px solid #2c3440", padding: 40, width: 380, animation: "slideUp 0.3s cubic-bezier(0.16,1,0.3,1)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #00e054, #00b848)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>📺</div>
-          <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, fontWeight: 900, color: "#fff" }}>ShowLog</span>
+          <img src="/icon.svg?v=3" style={{ width: 32, height: 32, borderRadius: 8 }} alt="ShowLog" />
+          <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 20, fontWeight: 700, color: "#fff" }}>ShowLog</span>
         </div>
-        <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{mode === "signin" ? "Welcome back" : "Create account"}</h2>
+        <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{mode === "signin" ? "Welcome back" : "Create account"}</h2>
         <p style={{ fontSize: 13, color: "#678", marginBottom: 24 }}>{mode === "signin" ? "Sign in to access your watchlist and diary." : "Track what you watch, rate your favorites."}</p>
         <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required style={inputStyle} />
@@ -877,16 +877,24 @@ export default function ShowLog() {
         @keyframes pulseGlow { 0%,100% { box-shadow: 0 0 20px rgba(0,224,84,0.1); } 50% { box-shadow: 0 0 30px rgba(0,224,84,0.2); } }
         @keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
         textarea:focus, input:focus { outline: none; }
+        .desktop-nav { display: flex; }
+        .desktop-search { display: flex; }
+        .mobile-bottom-nav { display: none; }
+        @media (max-width: 640px) {
+          .desktop-nav { display: none !important; }
+          .desktop-search { display: none !important; }
+          .mobile-bottom-nav { display: flex !important; }
+        }
       `}</style>
 
       {/* Header */}
       <header style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(13,17,23,0.85)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(44,52,64,0.5)", padding: "0 24px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} onClick={() => { setCurrentView("home"); setSearchQuery(""); }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #00e054, #00b848)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>📺</div>
-            <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: -0.5 }}>ShowLog</span>
+            <img src="/icon.svg?v=3" style={{ width: 32, height: 32, borderRadius: 8 }} alt="ShowLog" />
+            <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: -0.5 }}>ShowLog</span>
           </div>
-          <nav style={{ display: "flex", gap: 4 }}>
+          <nav className="desktop-nav" style={{ gap: 4 }}>
             {navItems.map(item => (
               <button key={item.key} onClick={() => { setCurrentView(item.key); setSearchQuery(""); }}
                 style={{ background: currentView === item.key ? "rgba(0,224,84,0.1)" : "transparent", border: "none", color: currentView === item.key ? "#00e054" : "#678", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s" }}>
@@ -895,7 +903,7 @@ export default function ShowLog() {
             ))}
           </nav>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ position: "relative" }}>
+            <div className="desktop-search" style={{ position: "relative" }}>
               <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); if (e.target.value) setCurrentView("search"); }}
                 onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} placeholder="Search TV shows..."
                 style={{ background: searchFocused ? "#1c2228" : "#14181c", border: searchFocused ? "1px solid #00e054" : "1px solid #2c3440", borderRadius: 8, color: "#cde", padding: "8px 14px 8px 36px", fontSize: 13, width: searchFocused ? 240 : 200, transition: "all 0.3s" }} />
@@ -918,7 +926,7 @@ export default function ShowLog() {
       {loading && (
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 24px" }}>
           <div style={{ textAlign: "center", padding: "60px 0 40px" }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #00e054, #00b848)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 20px" }}>📺</div>
+            <img src="/icon.svg?v=3" style={{ width: 44, height: 44, borderRadius: 12, display: "block", margin: "0 auto 20px" }} alt="ShowLog" />
             <LoadingDots text="Loading TV shows from TMDB" />
             <p style={{ color: "#456", fontSize: 12, marginTop: 8 }}>Powered by TMDB</p>
           </div>
@@ -934,7 +942,7 @@ export default function ShowLog() {
       {error && <div style={{ textAlign: "center", padding: 80, color: "#ff4444", fontSize: 14 }}>{error}</div>}
 
       {!loading && !error && (
-        <main style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
+        <main style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px 80px" }}>
 
           {/* HOME */}
           {currentView === "home" && (
@@ -951,7 +959,7 @@ export default function ShowLog() {
                   )}
                   <div style={{ position: "absolute", bottom: 48, left: 48, maxWidth: 500 }}>
                     <div style={{ fontSize: 11, color: "#00e054", textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, marginBottom: 8 }}>Trending</div>
-                    <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 44, fontWeight: 900, color: "#fff", lineHeight: 1, marginBottom: 12 }}>{trending[0].name}</h2>
+                    <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 44, fontWeight: 900, color: "#fff", lineHeight: 1, marginBottom: 12 }}>{trending[0].name}</h2>
                     <p style={{ fontSize: 14, color: "#9ab", lineHeight: 1.6, marginBottom: 16, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{trending[0].overview}</p>
                     <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                       <StarRating rating={trending[0].vote_average} size={16} />
@@ -963,7 +971,7 @@ export default function ShowLog() {
 
               {[["Trending", trending.slice(1, 7)], ["Popular", popular.slice(0, 6)], ["Top Rated", topRated.slice(0, 6)]].map(([title, shows]) => shows.length > 0 && (
                 <section key={title} style={{ marginBottom: 48 }}>
-                  <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 20 }}>{title}</h3>
+                  <h3 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 20 }}>{title}</h3>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16 }}>
                     {shows.map((s, i) => <ShowCard key={s.id} show={s} onClick={handleShowClick} delay={i * 70} />)}
                   </div>
@@ -975,7 +983,7 @@ export default function ShowLog() {
           {/* SEARCH */}
           {currentView === "search" && (
             <div style={{ paddingTop: 32 }}>
-              <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+              <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
                 {searchQuery ? `Results for "${searchQuery}"` : "Search for a show"}
               </h2>
               {searching ? (
@@ -998,7 +1006,7 @@ export default function ShowLog() {
                 <AuthBanner onSignIn={() => setShowAuthModal(true)} message="Your watchlist lives here" />
               ) : (
                 <>
-                  <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Your Watchlist</h2>
+                  <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Your Watchlist</h2>
                   <p style={{ fontSize: 14, color: "#678", marginBottom: 28 }}>{watchlist.size} show{watchlist.size !== 1 ? "s" : ""} queued</p>
                   {watchlist.size > 0 ? (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16 }}>
@@ -1035,7 +1043,7 @@ export default function ShowLog() {
                 <AuthBanner onSignIn={() => setShowAuthModal(true)} message="Your diary lives here" />
               ) : (
                 <>
-                  <h2 style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Your Diary</h2>
+                  <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Your Diary</h2>
                   <p style={{ fontSize: 14, color: "#678", marginBottom: 28 }}>Your personal TV journal</p>
                   {diary.length > 0 ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -1070,12 +1078,38 @@ export default function ShowLog() {
       <footer style={{ borderTop: "1px solid #1c2228", marginTop: 64, padding: "32px 24px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 16 }}>📺</span>
-            <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 700, color: "#456" }}>ShowLog</span>
+            <img src="/icon.svg?v=3" style={{ width: 64, height: 64, borderRadius: 16 }} alt="ShowLog" />
+            <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 44, fontWeight: 700, color: "#456" }}>ShowLog</span>
           </div>
           <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: "#345" }}>Powered by TMDB · v{__APP_VERSION__}</p>
         </div>
       </footer>
+
+      {/* Mobile bottom nav */}
+      <nav className="mobile-bottom-nav" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100, background: "rgba(13,17,23,0.95)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(44,52,64,0.5)", padding: "8px 0 max(8px, env(safe-area-inset-bottom))", justifyContent: "space-around", alignItems: "center" }}>
+        {navItems.filter(i => i.key !== "profile").map(item => (
+          <button key={item.key} onClick={() => { setCurrentView(item.key); setSearchQuery(""); }}
+            style={{ background: "none", border: "none", color: currentView === item.key ? "#00e054" : "#567", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 16px", cursor: "pointer", fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase" }}>
+            <span style={{ fontSize: 20 }}>{item.icon}</span>
+            {item.label}
+          </button>
+        ))}
+        {user ? (
+          <button onClick={() => { setCurrentView("profile"); setSearchQuery(""); }}
+            style={{ background: "none", border: "none", color: currentView === "profile" ? "#00e054" : "#567", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 16px", cursor: "pointer", fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase" }}>
+            <div style={{ width: 24, height: 24, borderRadius: "50%", background: currentView === "profile" ? "linear-gradient(135deg, #00e054, #40bcf4)" : "linear-gradient(135deg, #2a3a4a, #1c2a38)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: currentView === "profile" ? "#14181c" : "#9ab" }}>
+              {(user.user_metadata?.username?.[0] || user.email?.[0] || "U").toUpperCase()}
+            </div>
+            Profile
+          </button>
+        ) : (
+          <button onClick={() => setShowAuthModal(true)}
+            style={{ background: "none", border: "none", color: "#00e054", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 16px", cursor: "pointer", fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>
+            <span style={{ fontSize: 20 }}>⊕</span>
+            Sign In
+          </button>
+        )}
+      </nav>
 
       {selectedShow && <ShowDetail show={selectedShow} onClose={() => setSelectedShow(null)} watchlist={watchlist} toggleWatchlist={toggleWatchlist} watched={watched} toggleWatched={toggleWatched} addToDiary={addToDiary} watchedEps={episodeProgress.get(selectedShow.id) || new Set()} toggleEpisode={toggleEpisode} onBulkToggle={bulkToggleEpisodes} totalEpisodes={showTotals.get(selectedShow.id) || 0} onTotalsKnown={handleTotalsKnown} user={user} />}
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}

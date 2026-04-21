@@ -1,10 +1,46 @@
 # ShowLog — Roadmap & Feature Tracker
 
-**Last updated:** Apr 10, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
+**Last updated:** Apr 21, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
 
 ---
 
 ## 🚀 Releases
+
+### v1.1 — Apr 2026
+
+---
+
+#### v1.1.0
+<sub>Planned</sub>
+
+**Branding refresh and iOS app.**
+
+##### Features
+- **iOS App** — Native SwiftUI iOS app scaffolded as an Xcode project (`showlog-ios/`). Tabs: Home (continue watching + recent activity), Diary, Watchlist, Profile. Matches web app dark theme and green accent. Generated via xcodegen.
+
+##### UI
+- **Custom app icon** — Replaced the 📺 emoji placeholder with a bespoke SVG icon: a TV monitor displaying a show log list, with a highlighted green active row and episode progress bar. Green rounded-square background so it reads clearly against the dark UI.
+- **ShowLog wordmark font** — Changed branding font from Playfair Display (serif) to Space Grotesk (modern geometric sans-serif) in the header, auth modal, and footer.
+- **Heading font** — Updated all headings (h1, h2, h3) from Playfair Display to Space Grotesk for a consistent modern sans-serif look across the app.
+- **Footer branding size** — Increased footer logo and wordmark to 64px / 44px to give the branding more presence.
+
+---
+
+## 🔮 Future
+
+| ID | Item | Type | Priority | Details |
+|----|------|------|----------|---------|
+| FEA-08 | **Year in Review / Stats Page** | Feature | High | Annual wrapped-style stats: total shows watched, total episodes, top genres, most-watched network, average rating, watching streaks, first and last log of the year. Shareable as an image card (like Letterboxd's year in review). Data comes from diary entries + Supabase aggregations. |
+| FEA-09 | **AI Recommendations** | Feature | Medium | Use Claude to recommend shows based on the user's diary and ratings. Prompt includes top-rated shows and genres from the user's history; Claude returns 6–10 personalized picks with explanations. Powered by a `/api/recommend` endpoint that pulls the user's Supabase data and sends it as context. |
+| FEA-10 | **Import from Trakt / IMDb** | Feature | Medium | Let users migrate their existing watch history from Trakt (JSON export) or IMDb (CSV export). Parser maps their format to ShowLog diary entries + ratings, deduplicates against existing entries, shows a preview with New/Existing badges before committing. |
+| FEA-11 | **Social / Friends Feed** | Feature | Medium | Follow other users and see their recent diary entries in a feed. Show detail pages display friends' ratings inline. "Popular with friends" section on the homepage. Requires public/private profile settings. |
+| FEA-12 | **Show Lists** | Feature | Medium | Create and share curated lists (e.g. "Best HBO Shows", "Comfort Watches"). Lists have a title, description, and ordered set of shows. Public lists are discoverable. |
+| FEA-13 | **Streaming Availability** | Feature | Medium | Show which streaming platforms a show is currently available on using TMDB's `watch/providers` endpoint. Display platform logos on show cards and detail pages. Filter watchlist by platform. |
+| FEA-14 | **Reviews & Notes** | Feature | Low | Longer-form reviews on shows (not just a star rating). Public or private. Community reviews on show detail page if social is enabled. |
+| FEA-15 | **PWA / Mobile Experience** | Feature | Low | Service worker for offline access to watchlist and diary. PWA manifest for Add to Home Screen. |
+| UI-01 | **Public Profile URL** | UI | Medium | `/u/username` public profile showing watch stats, recent diary entries, top shows, and ratings distribution. Private by default with a toggle to go public. |
+
+---
 
 ### v1.0 — Apr 2026
 
@@ -102,28 +138,6 @@
 
 ---
 
-## 🔧 Next Up
-
-| ID | Item | Type | Priority | Details |
-|----|------|------|----------|---------|
-| FEA-08 | **Year in Review / Stats Page** | Feature | High | Annual wrapped-style stats: total shows watched, total episodes, top genres, most-watched network, average rating, watching streaks, first and last log of the year. Shareable as an image card (like Letterboxd's year in review). Data comes from diary entries + Supabase aggregations. |
-
----
-
-## 🔮 Future
-
-| ID | Item | Type | Priority | Details |
-|----|------|------|----------|---------|
-| FEA-09 | **AI Recommendations** | Feature | Medium | Use Claude to recommend shows based on the user's diary and ratings. Prompt includes top-rated shows and genres from the user's history; Claude returns 6–10 personalized picks with explanations. Powered by a `/api/recommend` endpoint that pulls the user's Supabase data and sends it as context. Different from search — this is a "surprise me" discovery flow, not query-driven. |
-| FEA-10 | **Import from Trakt / IMDb** | Feature | Medium | Let users migrate their existing watch history from Trakt (JSON export) or IMDb (CSV export). Parser maps their format to ShowLog diary entries + ratings, deduplicates against existing entries, shows a preview with New/Existing badges before committing. |
-| FEA-11 | **Social / Friends Feed** | Feature | Medium | Follow other users and see their recent diary entries in a feed. Show detail pages display friends' ratings inline. "Popular with friends" section on the homepage. Requires auth (INF-04) and public/private profile settings. |
-| FEA-12 | **Show Lists** | Feature | Medium | Create and share curated lists (e.g. "Best HBO Shows", "Comfort Watches"). Lists have a title, description, and ordered set of shows. Public lists are discoverable. |
-| FEA-13 | **Streaming Availability** | Feature | Medium | Show which streaming platforms a show is currently available on using TMDB's `watch/providers` endpoint. Display platform logos on show cards and detail pages. Filter watchlist by platform. |
-| FEA-14 | **Reviews & Notes** | Feature | Low | Longer-form reviews on shows (not just a star rating). Public or private. Community reviews on show detail page if social is enabled. |
-| FEA-15 | **PWA / Mobile Experience** | Feature | Low | Service worker for offline access to watchlist and diary. PWA manifest for Add to Home Screen. |
-| UI-01 | **Profile Page & Public Profile URL** | UI | Medium | `/u/username` public profile showing watch stats, recent diary entries, top shows, and ratings distribution. Private by default with a toggle to go public. |
-
----
 
 <details>
 <summary><strong>✅ Completed</strong></summary>
