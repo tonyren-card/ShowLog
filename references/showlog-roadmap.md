@@ -1,6 +1,6 @@
 # ShowLog — Roadmap & Feature Tracker
 
-**Last updated:** Apr 21, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
+**Last updated:** May 11, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
 
 ---
 
@@ -10,8 +10,18 @@
 
 ---
 
+#### v1.1.1
+<sub>Published 2026-05-11</sub>
+
+**Account deletion for App Store compliance.**
+
+##### Features
+- **Account Deletion** — Users can permanently delete their account from the Profile page. Clicking "Delete Account" reveals a confirmation panel requiring the user to type `DELETE` before proceeding. On confirm, a `POST /api/delete-account` Netlify Function verifies the user's JWT, deletes all rows from `watchlist_entries`, `diary_entries`, `watched_shows`, and `show_progress`, then calls the Supabase Admin API to delete the auth user. The app then signs out and returns to the home screen. Added to satisfy App Store Review Guidelines requirement for account deletion in apps with user authentication.
+
+---
+
 #### v1.1.0
-<sub>Planned</sub>
+<sub>Published 2026-04-21</sub>
 
 **Branding refresh and iOS app.**
 
@@ -144,6 +154,7 @@
 
 | ID | Item | Type | Completed |
 |----|------|------|-----------|
+| INF-05 | **Account Deletion** — Profile page delete flow with typed confirmation. Netlify Function deletes all user data from Supabase tables then removes the auth user via Admin API. App Store compliance. | Infra → Done | May 11 |
 | FEA-07 | **Season & Episode Tracking** — Season accordion in show detail with per-episode checkboxes. Season-level and series-level bulk mark. Progress bars on watchlist cards. "Up to SxEx" label. `show_progress` Supabase table. | Feature → Done | Apr 10 |
 | INF-04 | **User Authentication** — Supabase Auth with email + password. Auth-gated Watchlist/Diary/rating actions. Username support in user metadata. Profile page with stats. | Infra → Done | Apr 8 |
 | INF-03 | **Supabase Backend** — Watchlist, diary, and watched state persisted to Supabase. Anonymous sessions via Supabase Auth. RLS-secured tables: `watchlist_entries`, `diary_entries`, `watched_shows`. | Infra → Done | Apr 4 |
