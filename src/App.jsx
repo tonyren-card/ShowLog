@@ -527,12 +527,16 @@ const DiaryEntry = ({ entry, index, onUpdate, onDelete, onShowClick }) => {
 };
 
 // ── Profile View ──
-const ProfileView = ({ user, setUser, watched, diary, watchlist, showCache, handleShowClick }) => {
+const ProfileView = ({ user, setUser, watched, diary, watchlist, showCache, handleShowClick, onDeleteAccount }) => {
   const username = user.user_metadata?.username || "";
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState(username);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const displayName = username || user.email;
   const avatarLetter = (username?.[0] || user.email?.[0] || "U").toUpperCase();
@@ -576,7 +580,33 @@ const ProfileView = ({ user, setUser, watched, diary, watchlist, showCache, hand
               <div key={label}><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 24, fontWeight: 700, color }}>{val}</div><div style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1 }}>{label}</div></div>
             ))}
           </div>
-          <button onClick={() => supabase.auth.signOut()} style={{ background: "transparent", border: "1px solid #456", color: "#9ab", borderRadius: 8, padding: "8px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Sign Out</button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <button onClick={() => supabase.auth.signOut()} style={{ background: "transparent", border: "1px solid #456", color: "#9ab", borderRadius: 8, padding: "8px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Sign Out</button>
+            {!confirmDelete && (
+              <button onClick={() => { setConfirmDelete(true); setDeleteConfirmText(""); setDeleteError(""); }} style={{ background: "transparent", border: "1px solid #5a2020", color: "#a05050", borderRadius: 8, padding: "8px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Delete Account</button>
+            )}
+          </div>
+          {confirmDelete && (
+            <div style={{ background: "#1a0a0a", border: "1px solid #5a2020", borderRadius: 12, padding: 20, marginTop: 16, maxWidth: 420, animation: "fadeIn 0.2s" }}>
+              <p style={{ fontSize: 14, color: "#fca5a5", fontWeight: 600, marginBottom: 8 }}>Delete your account?</p>
+              <p style={{ fontSize: 13, color: "#9ab", marginBottom: 16, lineHeight: 1.5 }}>This will permanently delete your account and all data — watchlist, diary, and episode progress. This cannot be undone.</p>
+              <p style={{ fontSize: 12, color: "#678", marginBottom: 8 }}>Type <strong style={{ color: "#fca5a5" }}>DELETE</strong> to confirm:</p>
+              <input value={deleteConfirmText} onChange={e => { setDeleteConfirmText(e.target.value); setDeleteError(""); }} placeholder="DELETE"
+                style={{ background: "#14181c", border: "1px solid #5a2020", borderRadius: 6, color: "#fca5a5", padding: "8px 12px", fontSize: 13, fontFamily: "'DM Mono',monospace", width: "100%", boxSizing: "border-box", marginBottom: 12 }} />
+              {deleteError && <p style={{ fontSize: 12, color: "#ff6b6b", marginBottom: 10 }}>{deleteError}</p>}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={async () => {
+                  if (deleteConfirmText !== "DELETE") { setDeleteError("Type DELETE to confirm."); return; }
+                  setDeleting(true); setDeleteError("");
+                  const err = await onDeleteAccount();
+                  if (err) { setDeleteError(err); setDeleting(false); }
+                }} disabled={deleting} style={{ background: deleting ? "#2c3440" : "#7f1d1d", color: deleting ? "#567" : "#fca5a5", border: "none", borderRadius: 6, padding: "8px 18px", fontWeight: 700, fontSize: 13, cursor: deleting ? "default" : "pointer" }}>
+                  {deleting ? "Deleting…" : "Yes, delete my account"}
+                </button>
+                <button onClick={() => { setConfirmDelete(false); setDeleteConfirmText(""); setDeleteError(""); }} style={{ background: "transparent", border: "1px solid #456", color: "#9ab", borderRadius: 6, padding: "8px 14px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       {watched.size > 0 && (
@@ -802,6 +832,24 @@ export default function ShowLog() {
   };
 
   const handleShowClick = (show) => { setSelectedShow(show); showCache.current.set(show.id, show); };
+
+  const deleteAccount = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return "Could not get session. Please sign in again.";
+    try {
+      const res = await fetch("/api/delete-account", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+      });
+      const json = await res.json();
+      if (!res.ok) return json.error || "Failed to delete account.";
+      await supabase.auth.signOut();
+      setCurrentView("home");
+      return null;
+    } catch {
+      return "Network error. Please try again.";
+    }
+  };
 
   // Load TMDB shows + restore session on mount
   useEffect(() => {
@@ -1068,7 +1116,7 @@ export default function ShowLog() {
               {!user ? (
                 <AuthBanner onSignIn={() => setShowAuthModal(true)} message="Sign in to see your profile" />
               ) : (
-                <ProfileView user={user} setUser={setUser} watched={watched} diary={diary} watchlist={watchlist} showCache={showCache} handleShowClick={handleShowClick} />
+                <ProfileView user={user} setUser={setUser} watched={watched} diary={diary} watchlist={watchlist} showCache={showCache} handleShowClick={handleShowClick} onDeleteAccount={deleteAccount} />
               )}
             </div>
           )}
