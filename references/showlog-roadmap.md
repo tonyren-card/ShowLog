@@ -4,19 +4,68 @@
 
 ---
 
-## 🚀 Releases
-
-### v1.1 — Apr 2026
-
----
-
-#### v1.1.1
+## Latest — v1.1.1
 <sub>Published 2026-05-11</sub>
 
 **Account deletion for App Store compliance.**
 
-##### Features
+### Features
 - **Account Deletion** — Users can permanently delete their account from the Profile page. Clicking "Delete Account" reveals a confirmation panel requiring the user to type `DELETE` before proceeding. On confirm, a `POST /api/delete-account` Netlify Function verifies the user's JWT, deletes all rows from `watchlist_entries`, `diary_entries`, `watched_shows`, and `show_progress`, then calls the Supabase Admin API to delete the auth user. The app then signs out and returns to the home screen. Added to satisfy App Store Review Guidelines requirement for account deletion in apps with user authentication.
+
+---
+
+## 🔮 Future
+
+### Feature
+
+| ID | Item | Priority | Details |
+|----|------|----------|---------|
+| FEA-08 | **Year in Review / Stats Page** | High | Annual wrapped-style stats: total shows watched, total episodes, top genres, most-watched network, average rating, watching streaks, first and last log of the year. Shareable as an image card (like Letterboxd's year in review). Data comes from diary entries + Supabase aggregations. |
+| FEA-09 | **AI Recommendations** | Medium | Use Claude to recommend shows based on the user's diary and ratings. Prompt includes top-rated shows and genres from the user's history; Claude returns 6–10 personalized picks with explanations. Powered by a `/api/recommend` endpoint that pulls the user's Supabase data and sends it as context. |
+| FEA-10 | **Import from Trakt / IMDb** | Medium | Let users migrate their existing watch history from Trakt (JSON export) or IMDb (CSV export). Parser maps their format to ShowLog diary entries + ratings, deduplicates against existing entries, shows a preview with New/Existing badges before committing. |
+| FEA-11 | **Social / Friends Feed** | Medium | Follow other users and see their recent diary entries in a feed. Show detail pages display friends' ratings inline. "Popular with friends" section on the homepage. Requires public/private profile settings. |
+| FEA-12 | **Show Lists** | Medium | Create and share curated lists (e.g. "Best HBO Shows", "Comfort Watches"). Lists have a title, description, and ordered set of shows. Public lists are discoverable. |
+| FEA-13 | **Streaming Availability** | Medium | Show which streaming platforms a show is currently available on using TMDB's `watch/providers` endpoint. Display platform logos on show cards and detail pages. Filter watchlist by platform. |
+| FEA-14 | **Reviews & Notes** | Low | Longer-form reviews on shows (not just a star rating). Public or private. Community reviews on show detail page if social is enabled. |
+| FEA-15 | **PWA / Mobile Experience** | Low | Service worker for offline access to watchlist and diary. PWA manifest for Add to Home Screen. |
+| FEA-16 | **Home: Continue Watching & Recently Watched** | High | Add personalized sections to the homepage above the Trending/Popular/Top Rated rows, matching the iOS app. **Continue Watching** — horizontal scroll row of watchlist shows that have episode progress tracked (pulled from `show_progress`); shows poster, title, and an "Up to SxEx" progress label. **Recently Watched** — horizontal scroll row of the 6 most recently logged shows from `watched_shows`, ordered by log date. Both sections are hidden when empty. Requires the user to be signed in. |
+| FEA-17 | **Recent Searches** | Low | In the search view, show a list of the user's most recent search keywords when the search field is empty (or first focused). Tapping a keyword repopulates the field and triggers the search immediately. Keywords are stored in `localStorage` (max 10 entries, newest first). A "Clear" button removes all recent searches. Persists across sessions; no account required. |
+| FEA-18 | **Settings Menu** | Medium | Dedicated Settings page accessible from the Profile page. Organizes account actions and app preferences in one place. **Account** section: Sign Out and Delete Account (moved from the main Profile page). **Preferences** section: placeholder for future app-level settings (e.g. default rating scale, diary sort order). Keeps the Profile page focused on user stats and identity. |
+| FEA-19 | **Profile Picture** | Low | Users can upload a profile picture from the Settings page. Image is stored in a Supabase Storage bucket (`avatars/`) and the public URL saved to user metadata. The avatar is displayed on the Profile page and in the header (replacing the initial letter badge). Falls back to the initial letter badge if no avatar is set. |
+| FEA-20 | **Localization** | Medium | Translate the app UI into multiple languages, automatically matching the user's device language setting. All static strings extracted into i18n resource files. Locale-aware date and number formatting throughout. Falls back to English for unsupported locales. |
+| FEA-21 | **Light Mode & System Appearance** | Low | Add a light mode theme and a per-user appearance preference (Dark / Light / System). "System" automatically follows the OS-level light/dark setting. Preference stored in `localStorage` and applied via a CSS class on the root element. All color tokens updated to support both themes. |
+| FEA-23 | **Social Sign-In** | Medium | Add one-tap sign-in via Google, Apple, and Facebook as alternatives to email + password. Powered by Supabase OAuth providers. On the auth modal, provider buttons appear above the email form with a divider. On success, Supabase creates or links the account and the app session starts as normal. Apple Sign-In is required for App Store apps that offer other third-party sign-in options. |
+
+### UI
+
+| ID | Item | Priority | Details |
+|----|------|----------|---------|
+| UI-01 | **Public Profile URL** | Medium | `/u/username` public profile showing watch stats, recent diary entries, top shows, and ratings distribution. Private by default with a toggle to go public. |
+
+---
+
+## ✅ Completed
+
+| ID | Item | Type | Completed |
+|----|------|------|-----------|
+| INF-05 | **Account Deletion** — Profile page delete flow with typed confirmation. Netlify Function deletes all user data from Supabase tables then removes the auth user via Admin API. App Store compliance. | Infra → Done | May 11 |
+| FEA-07 | **Season & Episode Tracking** — Season accordion in show detail with per-episode checkboxes. Season-level and series-level bulk mark. Progress bars on watchlist cards. "Up to SxEx" label. `show_progress` Supabase table. | Feature → Done | Apr 10 |
+| INF-04 | **User Authentication** — Supabase Auth with email + password. Auth-gated Watchlist/Diary/rating actions. Username support in user metadata. Profile page with stats. | Infra → Done | Apr 8 |
+| INF-03 | **Supabase Backend** — Watchlist, diary, and watched state persisted to Supabase. Anonymous sessions via Supabase Auth. RLS-secured tables: `watchlist_entries`, `diary_entries`, `watched_shows`. | Infra → Done | Apr 4 |
+| INF-02 | **TMDB Direct API Integration** — Replaced Claude + web_search with direct TMDB REST API calls. Parallel category loading. Real poster/backdrop paths. `VITE_TMDB_API_KEY` as Netlify env var. | Infra → Done | Apr 4 |
+| INF-01 | **Netlify Deploy + API Proxy** — App live at showlogd.netlify.app. Netlify Function proxies Anthropic API server-side; key stored as env var. | Infra → Done | Apr 1 |
+| FEA-01 | **Show Search** — Search for TV shows via TMDB, returns up to 12 results. | Feature → Done | Apr 1 |
+| FEA-02 | **Browsable Categories** — Trending, Top Rated, Currently Airing. | Feature → Done | Apr 1 |
+| FEA-03 | **Show Detail Modal** — Backdrop, title, genres, rating, overview, action buttons. | Feature → Done | Apr 1 |
+| FEA-04 | **Watchlist** — Add/remove with localStorage → Supabase persistence. | Feature → Done | Apr 1 |
+| FEA-05 | **Diary** — Log watch events with date, notes, season. Reverse-chronological view. | Feature → Done | Apr 1 |
+| FEA-06 | **Star Ratings** — 0.5–5 stars per show, stored in localStorage → Supabase. | Feature → Done | Apr 1 |
+
+---
+
+## 🚀 Version History
+
+### v1.1 — Apr 2026
 
 ---
 
@@ -33,26 +82,6 @@
 - **ShowLog wordmark font** — Changed branding font from Playfair Display (serif) to Space Grotesk (modern geometric sans-serif) in the header, auth modal, and footer.
 - **Heading font** — Updated all headings (h1, h2, h3) from Playfair Display to Space Grotesk for a consistent modern sans-serif look across the app.
 - **Footer branding size** — Increased footer logo and wordmark to 64px / 44px to give the branding more presence.
-
----
-
-## 🔮 Future
-
-| ID | Item | Type | Priority | Details |
-|----|------|------|----------|---------|
-| FEA-08 | **Year in Review / Stats Page** | Feature | High | Annual wrapped-style stats: total shows watched, total episodes, top genres, most-watched network, average rating, watching streaks, first and last log of the year. Shareable as an image card (like Letterboxd's year in review). Data comes from diary entries + Supabase aggregations. |
-| FEA-09 | **AI Recommendations** | Feature | Medium | Use Claude to recommend shows based on the user's diary and ratings. Prompt includes top-rated shows and genres from the user's history; Claude returns 6–10 personalized picks with explanations. Powered by a `/api/recommend` endpoint that pulls the user's Supabase data and sends it as context. |
-| FEA-10 | **Import from Trakt / IMDb** | Feature | Medium | Let users migrate their existing watch history from Trakt (JSON export) or IMDb (CSV export). Parser maps their format to ShowLog diary entries + ratings, deduplicates against existing entries, shows a preview with New/Existing badges before committing. |
-| FEA-11 | **Social / Friends Feed** | Feature | Medium | Follow other users and see their recent diary entries in a feed. Show detail pages display friends' ratings inline. "Popular with friends" section on the homepage. Requires public/private profile settings. |
-| FEA-12 | **Show Lists** | Feature | Medium | Create and share curated lists (e.g. "Best HBO Shows", "Comfort Watches"). Lists have a title, description, and ordered set of shows. Public lists are discoverable. |
-| FEA-13 | **Streaming Availability** | Feature | Medium | Show which streaming platforms a show is currently available on using TMDB's `watch/providers` endpoint. Display platform logos on show cards and detail pages. Filter watchlist by platform. |
-| FEA-14 | **Reviews & Notes** | Feature | Low | Longer-form reviews on shows (not just a star rating). Public or private. Community reviews on show detail page if social is enabled. |
-| FEA-15 | **PWA / Mobile Experience** | Feature | Low | Service worker for offline access to watchlist and diary. PWA manifest for Add to Home Screen. |
-| FEA-16 | **Home: Continue Watching & Recently Watched** | Feature | High | Add personalized sections to the homepage above the Trending/Popular/Top Rated rows, matching the iOS app. **Continue Watching** — horizontal scroll row of watchlist shows that have episode progress tracked (pulled from `show_progress`); shows poster, title, and an "Up to SxEx" progress label. **Recently Watched** — horizontal scroll row of the 6 most recently logged shows from `watched_shows`, ordered by log date. Both sections are hidden when empty. Requires the user to be signed in. |
-| FEA-17 | **Recent Searches** | Feature | Low | In the search view, show a list of the user's most recent search keywords when the search field is empty (or first focused). Tapping a keyword repopulates the field and triggers the search immediately. Keywords are stored in `localStorage` (max 10 entries, newest first). A "Clear" button removes all recent searches. Persists across sessions; no account required. |
-| FEA-18 | **Settings Menu** | Feature | Medium | Dedicated Settings page accessible from the Profile page. Organizes account actions and app preferences in one place. **Account** section: Sign Out and Delete Account (moved from the main Profile page). **Preferences** section: placeholder for future app-level settings (e.g. default rating scale, diary sort order). Keeps the Profile page focused on user stats and identity. |
-| FEA-19 | **Profile Picture** | Feature | Low | Users can upload a profile picture from the Settings page. Image is stored in a Supabase Storage bucket (`avatars/`) and the public URL saved to user metadata. The avatar is displayed on the Profile page and in the header (replacing the initial letter badge). Falls back to the initial letter badge if no avatar is set. |
-| UI-01 | **Public Profile URL** | UI | Medium | `/u/username` public profile showing watch stats, recent diary entries, top shows, and ratings distribution. Private by default with a toggle to go public. |
 
 ---
 
@@ -151,24 +180,3 @@
 - **FEA-06: Star Ratings** — 0.5–5 star ratings per show. Stored in `localStorage`.
 
 ---
-
-
-<details>
-<summary><strong>✅ Completed</strong></summary>
-
-| ID | Item | Type | Completed |
-|----|------|------|-----------|
-| INF-05 | **Account Deletion** — Profile page delete flow with typed confirmation. Netlify Function deletes all user data from Supabase tables then removes the auth user via Admin API. App Store compliance. | Infra → Done | May 11 |
-| FEA-07 | **Season & Episode Tracking** — Season accordion in show detail with per-episode checkboxes. Season-level and series-level bulk mark. Progress bars on watchlist cards. "Up to SxEx" label. `show_progress` Supabase table. | Feature → Done | Apr 10 |
-| INF-04 | **User Authentication** — Supabase Auth with email + password. Auth-gated Watchlist/Diary/rating actions. Username support in user metadata. Profile page with stats. | Infra → Done | Apr 8 |
-| INF-03 | **Supabase Backend** — Watchlist, diary, and watched state persisted to Supabase. Anonymous sessions via Supabase Auth. RLS-secured tables: `watchlist_entries`, `diary_entries`, `watched_shows`. | Infra → Done | Apr 4 |
-| INF-02 | **TMDB Direct API Integration** — Replaced Claude + web_search with direct TMDB REST API calls. Parallel category loading. Real poster/backdrop paths. `VITE_TMDB_API_KEY` as Netlify env var. | Infra → Done | Apr 4 |
-| INF-01 | **Netlify Deploy + API Proxy** — App live at showlogd.netlify.app. Netlify Function proxies Anthropic API server-side; key stored as env var. | Infra → Done | Apr 1 |
-| FEA-01 | **Show Search** — Search for TV shows via TMDB, returns up to 12 results. | Feature → Done | Apr 1 |
-| FEA-02 | **Browsable Categories** — Trending, Top Rated, Currently Airing. | Feature → Done | Apr 1 |
-| FEA-03 | **Show Detail Modal** — Backdrop, title, genres, rating, overview, action buttons. | Feature → Done | Apr 1 |
-| FEA-04 | **Watchlist** — Add/remove with localStorage → Supabase persistence. | Feature → Done | Apr 1 |
-| FEA-05 | **Diary** — Log watch events with date, notes, season. Reverse-chronological view. | Feature → Done | Apr 1 |
-| FEA-06 | **Star Ratings** — 0.5–5 stars per show, stored in localStorage → Supabase. | Feature → Done | Apr 1 |
-
-</details>
