@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00e054"/>
+      <stop offset="100%" stop-color="#00b844"/>
+    </linearGradient>
+  </defs>
+
+  <!-- App icon background — green so it pops on dark UI -->
+  <rect width="512" height="512" rx="108" fill="url(#bgGrad)"/>
+
+  <!-- Monitor outer bezel -->
+  <rect x="44" y="82" width="424" height="292" rx="24" fill="#082010"/>
+
+  <!-- Screen glass -->
+  <rect x="62" y="100" width="388" height="256" rx="15" fill="#050e08"/>
+
+  <!-- ─── Log Entry 1 (watched) ─── -->
+  <circle cx="107" cy="158" r="11" fill="#0d2418"/>
+  <polyline points="101,158 106,163 115,152" fill="none" stroke="#1a5c30" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="130" y="151" width="188" height="13" rx="6.5" fill="#0d2418"/>
+  <rect x="328" y="151" width="48" height="13" rx="6.5" fill="#0d2418"/>
+  <rect x="385" y="151" width="44" height="13" rx="6.5" fill="#0d2418"/>
+
+  <!-- ─── Log Entry 2 (watched) ─── -->
+  <circle cx="107" cy="200" r="11" fill="#0d2418"/>
+  <polyline points="101,200 106,205 115,194" fill="none" stroke="#1a5c30" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="130" y="193" width="210" height="13" rx="6.5" fill="#0d2418"/>
+  <rect x="350" y="193" width="40" height="13" rx="6.5" fill="#0d2418"/>
+  <rect x="399" y="193" width="30" height="13" rx="6.5" fill="#0d2418"/>
+
+  <!-- ─── Log Entry 3 (ACTIVE — currently watching) ─── -->
+  <!-- Row highlight background -->
+  <rect x="62" y="222" width="388" height="58" fill="#00e054" opacity="0.12"/>
+  <!-- White left accent bar -->
+  <rect x="62" y="222" width="5" height="58" fill="#ffffff"/>
+  <!-- Active dot -->
+  <circle cx="107" cy="251" r="8" fill="#00e054" opacity="0.3"/>
+  <circle cx="107" cy="251" r="5" fill="#00e054"/>
+  <!-- Show title — white so it reads clearly -->
+  <rect x="130" y="243" width="230" height="14" rx="7" fill="#ffffff" opacity="0.9"/>
+  <rect x="370" y="243" width="58" height="14" rx="7" fill="#ffffff" opacity="0.4"/>
+  <!-- Progress bar track -->
+  <rect x="130" y="263" width="148" height="7" rx="3.5" fill="#0d2418"/>
+  <!-- Progress bar fill -->
+  <rect x="130" y="263" width="82" height="7" rx="3.5" fill="#00e054"/>
+
+  <!-- ─── Log Entry 4 (queued) ─── -->
+  <circle cx="107" cy="310" r="11" fill="#071209"/>
+  <circle cx="107" cy="310" r="4" fill="#0d2418"/>
+  <rect x="130" y="303" width="172" height="13" rx="6.5" fill="#071209"/>
+  <rect x="312" y="303" width="52" height="13" rx="6.5" fill="#071209"/>
+  <rect x="374" y="303" width="55" height="13" rx="6.5" fill="#071209"/>
+
+  <!-- Monitor neck -->
+  <rect x="226" y="374" width="60" height="28" rx="8" fill="#082010"/>
+
+  <!-- Monitor base -->
+  <rect x="178" y="398" width="156" height="20" rx="10" fill="#082010"/>
+</svg>

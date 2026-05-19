@@ -1,16 +1,16 @@
 # ShowLog — Roadmap & Feature Tracker
 
-**Last updated:** May 11, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
+**Last updated:** May 15, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
 
 ---
 
-## Latest — v1.1.1
-<sub>Published 2026-05-11</sub>
+## Latest — v1.1.2
+<sub>Published 2026-05-15</sub>
 
-**Account deletion for App Store compliance.**
+**Profile picture upload.**
 
 ### Features
-- **Account Deletion** — Users can permanently delete their account from the Profile page. Clicking "Delete Account" reveals a confirmation panel requiring the user to type `DELETE` before proceeding. On confirm, a `POST /api/delete-account` Netlify Function verifies the user's JWT, deletes all rows from `watchlist_entries`, `diary_entries`, `watched_shows`, and `show_progress`, then calls the Supabase Admin API to delete the auth user. The app then signs out and returns to the home screen. Added to satisfy App Store Review Guidelines requirement for account deletion in apps with user authentication.
+- **FEA-19: Profile Picture** — Users can upload a profile picture from the Profile page. Clicking the avatar opens a file picker; the image is uploaded to a Supabase Storage `avatars/` bucket at `{userId}.jpg` (upsert). The public URL is saved to user metadata with a cache-busting timestamp so the new image appears immediately without a page refresh. The avatar is displayed on the Profile page and in the header (both desktop and mobile nav), replacing the initial letter badge. Falls back to the initial letter badge if no avatar is set. On load, `supabase.auth.getUser()` is called to fetch fresh metadata so avatars set on other platforms (e.g. iOS) appear immediately.
 
 ---
 
@@ -31,10 +31,10 @@
 | FEA-16 | **Home: Continue Watching & Recently Watched** | High | Add personalized sections to the homepage above the Trending/Popular/Top Rated rows, matching the iOS app. **Continue Watching** — horizontal scroll row of watchlist shows that have episode progress tracked (pulled from `show_progress`); shows poster, title, and an "Up to SxEx" progress label. **Recently Watched** — horizontal scroll row of the 6 most recently logged shows from `watched_shows`, ordered by log date. Both sections are hidden when empty. Requires the user to be signed in. |
 | FEA-17 | **Recent Searches** | Low | In the search view, show a list of the user's most recent search keywords when the search field is empty (or first focused). Tapping a keyword repopulates the field and triggers the search immediately. Keywords are stored in `localStorage` (max 10 entries, newest first). A "Clear" button removes all recent searches. Persists across sessions; no account required. |
 | FEA-18 | **Settings Menu** | Medium | Dedicated Settings page accessible from the Profile page. Organizes account actions and app preferences in one place. **Account** section: Sign Out and Delete Account (moved from the main Profile page). **Preferences** section: placeholder for future app-level settings (e.g. default rating scale, diary sort order). Keeps the Profile page focused on user stats and identity. |
-| FEA-19 | **Profile Picture** | Low | Users can upload a profile picture from the Settings page. Image is stored in a Supabase Storage bucket (`avatars/`) and the public URL saved to user metadata. The avatar is displayed on the Profile page and in the header (replacing the initial letter badge). Falls back to the initial letter badge if no avatar is set. |
 | FEA-20 | **Localization** | Medium | Translate the app UI into multiple languages, automatically matching the user's device language setting. All static strings extracted into i18n resource files. Locale-aware date and number formatting throughout. Falls back to English for unsupported locales. |
 | FEA-21 | **Light Mode & System Appearance** | Low | Add a light mode theme and a per-user appearance preference (Dark / Light / System). "System" automatically follows the OS-level light/dark setting. Preference stored in `localStorage` and applied via a CSS class on the root element. All color tokens updated to support both themes. |
 | FEA-23 | **Social Sign-In** | Medium | Add one-tap sign-in via Google, Apple, and Facebook as alternatives to email + password. Powered by Supabase OAuth providers. On the auth modal, provider buttons appear above the email form with a divider. On success, Supabase creates or links the account and the app session starts as normal. Apple Sign-In is required for App Store apps that offer other third-party sign-in options. |
+| FEA-24 | **Per-Episode Ratings & Reviews** | Medium | Rate (0.5–5 stars) and write an optional review for each individual episode, inline in the season accordion. A star icon on each episode row opens a small rating + notes popover; rated episodes show the star count alongside the episode title. Season headers display the average rating across rated episodes. Data stored in a new `episode_ratings` Supabase table (`user_id`, `show_id`, `season_number`, `episode_number`, `rating`, `review`, `rated_at`). Requires auth; prompts sign-in if unauthenticated. |
 
 ### UI
 
@@ -48,6 +48,7 @@
 
 | ID | Item | Type | Completed |
 |----|------|------|-----------|
+| FEA-19 | **Profile Picture** — Upload from Profile page, stored in Supabase Storage `avatars/` bucket. Cache-busted URL saved to user metadata. Shown in header and Profile page; falls back to letter badge. Cross-platform (iOS + web) via `getUser()` on load. | Feature → Done | May 15 |
 | INF-05 | **Account Deletion** — Profile page delete flow with typed confirmation. Netlify Function deletes all user data from Supabase tables then removes the auth user via Admin API. App Store compliance. | Infra → Done | May 11 |
 | FEA-07 | **Season & Episode Tracking** — Season accordion in show detail with per-episode checkboxes. Season-level and series-level bulk mark. Progress bars on watchlist cards. "Up to SxEx" label. `show_progress` Supabase table. | Feature → Done | Apr 10 |
 | INF-04 | **User Authentication** — Supabase Auth with email + password. Auth-gated Watchlist/Diary/rating actions. Username support in user metadata. Profile page with stats. | Infra → Done | Apr 8 |
@@ -65,7 +66,17 @@
 
 ## 🚀 Version History
 
-### v1.1 — Apr 2026
+### v1.1 — Apr–May 2026
+
+---
+
+#### v1.1.1
+<sub>Published 2026-05-11</sub>
+
+**Account deletion for App Store compliance.**
+
+##### Features
+- **Account Deletion** — Users can permanently delete their account from the Profile page. Clicking "Delete Account" reveals a confirmation panel requiring the user to type `DELETE` before proceeding. On confirm, a `POST /api/delete-account` Netlify Function verifies the user's JWT, deletes all rows from `watchlist_entries`, `diary_entries`, `watched_shows`, and `show_progress`, then calls the Supabase Admin API to delete the auth user. The app then signs out and returns to the home screen. Added to satisfy App Store Review Guidelines requirement for account deletion in apps with user authentication.
 
 ---
 

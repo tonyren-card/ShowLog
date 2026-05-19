@@ -537,9 +537,13 @@ const ProfileView = ({ user, setUser, watched, diary, watchlist, showCache, hand
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef(null);
 
   const displayName = username || user.email;
   const avatarLetter = (username?.[0] || user.email?.[0] || "U").toUpperCase();
+  const avatarUrl = user.user_metadata?.avatar_url || null;
 
   const saveUsername = async () => {
     const trimmed = input.trim();
@@ -552,12 +556,56 @@ const ProfileView = ({ user, setUser, watched, diary, watchlist, showCache, hand
     setSaving(false);
   };
 
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    const input = e.target;
+    if (!file) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      const path = `${user.id}.jpg`;
+      const { error: storageError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (storageError) throw storageError;
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      const { data, error: updateError } = await supabase.auth.updateUser({ data: { avatar_url: `${publicUrl}?t=${Date.now()}` } });
+      if (updateError) throw updateError;
+      setUser(data.user);
+    } catch (err) {
+      console.error("Avatar upload failed:", err);
+      setUploadError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+      input.value = "";
+    }
+  };
+
   return (
     <>
       <div style={{ display: "flex", gap: 32, marginBottom: 40, alignItems: "center", animation: "fadeIn 0.5s", flexWrap: "wrap" }}>
-        <div style={{ width: 96, height: 96, borderRadius: "50%", background: "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, fontWeight: 900, color: "#14181c", fontFamily: "'Space Grotesk',sans-serif", animation: "pulseGlow 3s ease infinite", flexShrink: 0 }}>
-          {avatarLetter}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <div
+            onClick={() => !uploading && fileInputRef.current?.click()}
+            title="Change profile picture"
+            style={{ width: 96, height: 96, borderRadius: "50%", background: avatarUrl ? "transparent" : "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, fontWeight: 900, color: "#14181c", fontFamily: "'Space Grotesk',sans-serif", animation: avatarUrl ? "none" : "pulseGlow 3s ease infinite", cursor: uploading ? "default" : "pointer", overflow: "hidden" }}>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; e.target.parentElement.style.background = "linear-gradient(135deg, #00e054, #40bcf4)"; e.target.parentElement.insertAdjacentHTML("beforeend", `<span style="font-size:36px;font-weight:900;color:#14181c">${avatarLetter}</span>`); }} />
+            ) : (
+              avatarLetter
+            )}
+            {uploading && (
+              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%" }}>
+                <div style={{ width: 20, height: 20, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+              </div>
+            )}
+          </div>
+          <div style={{ position: "absolute", bottom: 2, right: 2, width: 24, height: 24, borderRadius: "50%", background: "#00e054", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+            <span style={{ fontSize: 11, color: "#14181c" }}>✎</span>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: "none" }} />
         </div>
+        {uploadError && <p style={{ fontSize: 12, color: "#ff6b6b", margin: "4px 0 0", width: "100%" }}>{uploadError}</p>}
         <div style={{ flex: 1 }}>
           {editing ? (
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
@@ -857,7 +905,8 @@ export default function ShowLog() {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        setUser(session.user);
+        const { data: { user: freshUser } } = await supabase.auth.getUser();
+        setUser(freshUser || session.user);
         await loadUserData(session.user.id);
       }
       const showResults = await Promise.allSettled([
@@ -924,6 +973,7 @@ export default function ShowLog() {
         @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulseGlow { 0%,100% { box-shadow: 0 0 20px rgba(0,224,84,0.1); } 50% { box-shadow: 0 0 30px rgba(0,224,84,0.2); } }
         @keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
         textarea:focus, input:focus { outline: none; }
         .desktop-nav { display: flex; }
         .desktop-search { display: flex; }
@@ -959,8 +1009,11 @@ export default function ShowLog() {
             </div>
             {user ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div onClick={() => { setCurrentView("profile"); setSearchQuery(""); }} title={user.user_metadata?.username || user.email} style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#14181c", cursor: "pointer", flexShrink: 0 }}>
-                  {(user.user_metadata?.username?.[0] || user.email?.[0] || "U").toUpperCase()}
+                <div onClick={() => { setCurrentView("profile"); setSearchQuery(""); }} title={user.user_metadata?.username || user.email} style={{ width: 32, height: 32, borderRadius: "50%", background: user.user_metadata?.avatar_url ? "transparent" : "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#14181c", cursor: "pointer", flexShrink: 0, overflow: "hidden" }}>
+                  {user.user_metadata?.avatar_url
+                    ? <img src={user.user_metadata.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; }}  />
+                    : (user.user_metadata?.username?.[0] || user.email?.[0] || "U").toUpperCase()
+                  }
                 </div>
               </div>
             ) : (
@@ -1145,8 +1198,11 @@ export default function ShowLog() {
         {user ? (
           <button onClick={() => { setCurrentView("profile"); setSearchQuery(""); }}
             style={{ background: "none", border: "none", color: currentView === "profile" ? "#00e054" : "#567", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 16px", cursor: "pointer", fontSize: 10, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase" }}>
-            <div style={{ width: 24, height: 24, borderRadius: "50%", background: currentView === "profile" ? "linear-gradient(135deg, #00e054, #40bcf4)" : "linear-gradient(135deg, #2a3a4a, #1c2a38)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: currentView === "profile" ? "#14181c" : "#9ab" }}>
-              {(user.user_metadata?.username?.[0] || user.email?.[0] || "U").toUpperCase()}
+            <div style={{ width: 24, height: 24, borderRadius: "50%", background: user.user_metadata?.avatar_url ? "transparent" : currentView === "profile" ? "linear-gradient(135deg, #00e054, #40bcf4)" : "linear-gradient(135deg, #2a3a4a, #1c2a38)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: currentView === "profile" ? "#14181c" : "#9ab", overflow: "hidden" }}>
+              {user.user_metadata?.avatar_url
+                ? <img src={user.user_metadata.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; }} />
+                : (user.user_metadata?.username?.[0] || user.email?.[0] || "U").toUpperCase()
+              }
             </div>
             Profile
           </button>
