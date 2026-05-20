@@ -1,6 +1,6 @@
 # ShowLog — Roadmap & Feature Tracker
 
-**Last updated:** May 15, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
+**Last updated:** May 20, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
 
 ---
 
@@ -16,6 +16,16 @@
 
 ## 🔮 Future
 
+### Known Bugs
+
+| ID | Bug | Severity | Details |
+|----|-----|----------|---------|
+| BUG-05 | **Mobile search unavailable** | Critical | `.desktop-search { display: none !important; }` hides the search bar on mobile (≤640px) with no replacement in the mobile bottom nav. Users on phones cannot search for shows at all — the primary discovery mechanism is completely missing on mobile. Fix: add a Search tab to the mobile bottom nav that opens a full-screen search view, or move the search input into the page header for all breakpoints. |
+| BUG-07 | **Diary entry requires a mandatory rating** | Medium | "Save Entry" is blocked when `userRating === 0` (line 372 in App.jsx). Users cannot log a show without giving a star rating — no way to backfill a watch you forgot to rate. The edit form has the same gate (line 501). Rating should be optional; the save button should be enabled whenever the user is on the form. Same bug on iOS (BUG-07). |
+| BUG-08 | **"Recently Watched" on Profile shows wrong order** | Low | `watched_shows` is queried without `ORDER BY` (line 768), so the `Set`'s insertion order depends on arbitrary Supabase result order. `[...watched].slice(-6).reverse()` may not reflect actual recency. Fix: add `.order("created_at", { ascending: false })` to the `watched_shows` query and use that ordering when slicing for the profile display. |
+| BUG-09 | **Half-star input not implemented** | Low | FEA-06 describes "0.5–5 stars" ratings, and the `StarRating` component has display logic for half-stars, but `onChange(s)` always passes an integer (1–5) on click. Users can only save whole-star ratings from the web UI. Fix: split each star span into two clickable zones (`left` → `s - 0.5`, `right` → `s`) to support 0.5-increment input. |
+| BUG-10 | **Unused Playfair Display font import** | Low | The global `@import` in App.jsx still imports Playfair Display (line 966), which was replaced by Space Grotesk in v1.1.0 and is no longer used anywhere in the app. This adds an unnecessary Google Fonts network request on every page load. Remove it from the import URL. |
+
 ### Feature
 
 | ID | Item | Priority | Details |
@@ -27,20 +37,29 @@
 | FEA-12 | **Show Lists** | Medium | Create and share curated lists (e.g. "Best HBO Shows", "Comfort Watches"). Lists have a title, description, and ordered set of shows. Public lists are discoverable. |
 | FEA-13 | **Streaming Availability** | Medium | Show which streaming platforms a show is currently available on using TMDB's `watch/providers` endpoint. Display platform logos on show cards and detail pages. Filter watchlist by platform. |
 | FEA-14 | **Reviews & Notes** | Low | Longer-form reviews on shows (not just a star rating). Public or private. Community reviews on show detail page if social is enabled. |
-| FEA-15 | **PWA / Mobile Experience** | Low | Service worker for offline access to watchlist and diary. PWA manifest for Add to Home Screen. |
-| FEA-16 | **Home: Continue Watching & Recently Watched** | High | Add personalized sections to the homepage above the Trending/Popular/Top Rated rows, matching the iOS app. **Continue Watching** — horizontal scroll row of watchlist shows that have episode progress tracked (pulled from `show_progress`); shows poster, title, and an "Up to SxEx" progress label. **Recently Watched** — horizontal scroll row of the 6 most recently logged shows from `watched_shows`, ordered by log date. Both sections are hidden when empty. Requires the user to be signed in. |
+| FEA-15 | **PWA / Mobile Experience** | Low | Service worker for offline access to watchlist and diary. PWA manifest for Add to Home Screen. *(Web-only — FEA-15 on iOS refers to a different, already-shipped feature.)* |
+| FEA-16 | **Home: Continue Watching & Recently Watched** | High | Add personalized sections to the homepage above the Trending/Popular/Top Rated rows, matching the iOS app. **Continue Watching** — horizontal scroll row of watchlist shows that have episode progress tracked (pulled from `show_progress`); shows poster, title, and an "Up to SxEx" progress label. **Recently Watched** — horizontal scroll row of the 6 most recently logged shows from `watched_shows`, ordered by log date. Both sections are hidden when empty. Requires the user to be signed in. *(Web-only — FEA-16 on iOS refers to a different, already-shipped feature. iOS equivalent is FEA-06 + FEA-15.)* |
 | FEA-17 | **Recent Searches** | Low | In the search view, show a list of the user's most recent search keywords when the search field is empty (or first focused). Tapping a keyword repopulates the field and triggers the search immediately. Keywords are stored in `localStorage` (max 10 entries, newest first). A "Clear" button removes all recent searches. Persists across sessions; no account required. |
 | FEA-18 | **Settings Menu** | Medium | Dedicated Settings page accessible from the Profile page. Organizes account actions and app preferences in one place. **Account** section: Sign Out and Delete Account (moved from the main Profile page). **Preferences** section: placeholder for future app-level settings (e.g. default rating scale, diary sort order). Keeps the Profile page focused on user stats and identity. |
 | FEA-20 | **Localization** | Medium | Translate the app UI into multiple languages, automatically matching the user's device language setting. All static strings extracted into i18n resource files. Locale-aware date and number formatting throughout. Falls back to English for unsupported locales. |
 | FEA-21 | **Light Mode & System Appearance** | Low | Add a light mode theme and a per-user appearance preference (Dark / Light / System). "System" automatically follows the OS-level light/dark setting. Preference stored in `localStorage` and applied via a CSS class on the root element. All color tokens updated to support both themes. |
 | FEA-23 | **Social Sign-In** | Medium | Add one-tap sign-in via Google, Apple, and Facebook as alternatives to email + password. Powered by Supabase OAuth providers. On the auth modal, provider buttons appear above the email form with a divider. On success, Supabase creates or links the account and the app session starts as normal. Apple Sign-In is required for App Store apps that offer other third-party sign-in options. |
 | FEA-24 | **Per-Episode Ratings & Reviews** | Medium | Rate (0.5–5 stars) and write an optional review for each individual episode, inline in the season accordion. A star icon on each episode row opens a small rating + notes popover; rated episodes show the star count alongside the episode title. Season headers display the average rating across rated episodes. Data stored in a new `episode_ratings` Supabase table (`user_id`, `show_id`, `season_number`, `episode_number`, `rating`, `review`, `rated_at`). Requires auth; prompts sign-in if unauthenticated. |
+| FEA-25 | **Similar Shows** | Medium | "Similar" tab in the show detail modal, powered by TMDB's `GET /tv/{id}/similar` endpoint. Shows a 2-row grid of up to 12 similar shows with poster, title, year, and TMDB rating. Clicking opens a new detail modal. Natural discovery path after finishing a show or browsing its detail page. |
+| FEA-26 | **Diary grouped by month/year** | Medium | Group diary entries with sticky month+year section headers (e.g. "May 2026", "April 2026") instead of a flat list. Each group shows an entry count badge. Matches how Letterboxd structures its diary view. Month headers collapse to a count row when there are more than 10 entries in the section. |
+| FEA-27 | **Watchlist sort & filter** | Low | Add a sort control above the watchlist grid: sort by Date Added (newest/oldest), Title (A–Z), or TMDB Rating. Optionally filter by genre chip. Selection persists in `localStorage`. Currently shows are just displayed in Supabase query order. |
+| FEA-28 | **Currently Airing section** | Low | Add a "Currently Airing" category row on the homepage using TMDB's `GET /tv/on_the_air` endpoint. Sits above or below Trending. Most relevant for active-season watchers who track shows week-to-week. |
+| FEA-29 | **Load more for home categories** | Low | Each homepage category (Trending, Popular, Top Rated) currently hard-caps at 6 results. Add a "See all →" button that expands to all 12 results from the TMDB page, or links to a dedicated category page. Pairs with FEA-28 if that row is added. |
+| FEA-30 | **Forgot password flow** | Medium | The `AuthModal` has no "Forgot password?" link. Add a "Reset Password" mode that calls `supabase.auth.resetPasswordForEmail(email, { redirectTo: ... })` and shows a confirmation message. On return from the reset link, detect the `#access_token` hash and open a "Set New Password" form. Required for basic account management hygiene. |
 
 ### UI
 
 | ID | Item | Priority | Details |
 |----|------|----------|---------|
 | UI-01 | **Public Profile URL** | Medium | `/u/username` public profile showing watch stats, recent diary entries, top shows, and ratings distribution. Private by default with a toggle to go public. |
+| UI-03 | **Mobile search view** | High | Companion to BUG-05. Add a Search tab to the mobile bottom nav (between Home and Watchlist). Tapping it navigates to a dedicated search page with an auto-focused input and the existing search results grid. Replaces the desktop header search on mobile. |
+| UI-04 | **Your rating badge on watchlist cards** | Low | In the Watchlist and Profile "Recently Watched" grids, show a small green star badge (e.g. "★ 4") on show cards where the user has a diary entry rating. Overlaid in the bottom-left corner, styled like the TMDB score chip. Reads from the `diary` state to find the most recent rating for each show. |
+| UI-05 | **Watchlist quick-remove** | Low | On hover (desktop) show a subtle "✕" icon in the top-left of watchlist cards. Clicking it removes the show from the watchlist without opening the detail modal — the same as pressing "★ In Watchlist" inside the modal, but one click faster. |
 
 ---
 
