@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "./supabase";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/";
@@ -358,18 +358,16 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
                     style={{ background: "#14181c", border: "1px solid #2c3440", borderRadius: 6, color: "#cde", padding: "7px 10px", fontSize: 13, fontFamily: "'DM Mono',monospace" }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Your Rating</div>
+                  <div style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Your Rating <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "#456" }}>(optional)</span></div>
                   <StarRating rating={userRating} size={24} interactive onChange={setUserRating} />
                 </div>
               </div>
               <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} placeholder="Add your review..."
                 style={{ width: "100%", minHeight: 100, background: "#14181c", border: "1px solid #2c3440", borderRadius: 8, color: "#cde", padding: 14, fontFamily: "'DM Sans',sans-serif", fontSize: 14, resize: "vertical", outline: "none", boxSizing: "border-box" }} />
               <button onClick={() => {
-                if (userRating > 0) {
-                  addToDiary({ showId: show.id, showData: d, rating: userRating, review: reviewText, date: logDate });
-                  setShowReviewInput(false); setReviewText(""); setUserRating(0); setLogDate(today);
-                }
-              }} style={{ marginTop: 12, background: userRating > 0 ? "#00e054" : "#2c3440", color: userRating > 0 ? "#14181c" : "#567", border: "none", padding: "10px 24px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: userRating > 0 ? "pointer" : "default" }}>Save Entry</button>
+                addToDiary({ showId: show.id, showData: d, rating: userRating, review: reviewText, date: logDate });
+                setShowReviewInput(false); setReviewText(""); setUserRating(0); setLogDate(today);
+              }} style={{ marginTop: 12, background: "#00e054", color: "#14181c", border: "none", padding: "10px 24px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Save Entry</button>
             </div>
           )}
 
@@ -490,7 +488,7 @@ const DiaryEntry = ({ entry, index, onUpdate, onDelete, onShowClick }) => {
                     style={{ background: "#0d1117", border: "1px solid #2c3440", borderRadius: 6, color: "#cde", padding: "6px 10px", fontSize: 13, fontFamily: "'DM Mono',monospace" }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Rating</div>
+                  <div style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Rating <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, color: "#456" }}>(optional)</span></div>
                   <StarRating rating={draftRating} size={20} interactive onChange={setDraftRating} />
                 </div>
               </div>
@@ -498,8 +496,8 @@ const DiaryEntry = ({ entry, index, onUpdate, onDelete, onShowClick }) => {
                 style={{ background: "#0d1117", border: "1px solid #2c3440", borderRadius: 6, color: "#cde", padding: 10, fontSize: 13, fontFamily: "'DM Sans',sans-serif", resize: "vertical", minHeight: 70, outline: "none", width: "100%", boxSizing: "border-box" }} />
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={save} disabled={saving || draftRating === 0}
-                    style={{ background: draftRating > 0 ? "#00e054" : "#2c3440", color: draftRating > 0 ? "#14181c" : "#567", border: "none", borderRadius: 6, padding: "8px 18px", fontWeight: 700, fontSize: 13, cursor: draftRating > 0 && !saving ? "pointer" : "default" }}>
+                  <button onClick={save} disabled={saving}
+                    style={{ background: "#00e054", color: "#14181c", border: "none", borderRadius: 6, padding: "8px 18px", fontWeight: 700, fontSize: 13, cursor: saving ? "default" : "pointer" }}>
                     {saving ? "Saving…" : "Save"}
                   </button>
                   <button onClick={() => { setEditing(false); setConfirmingDelete(false); }}
@@ -748,6 +746,9 @@ export default function ShowLog() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("showlog_recent_searches") || "[]"); } catch { return []; }
+  });
   const [error, setError] = useState("");
 
   const [watchlist, setWatchlist] = useState(new Set());
@@ -881,6 +882,23 @@ export default function ShowLog() {
 
   const handleShowClick = (show) => { setSelectedShow(show); showCache.current.set(show.id, show); };
 
+  const continueWatching = useMemo(() => {
+    if (!user) return [];
+    return [...watchlist]
+      .filter(id => (episodeProgress.get(id)?.size || 0) > 0)
+      .map(id => showCache.current.get(id))
+      .filter(Boolean);
+  }, [user, watchlist, episodeProgress]);
+
+  const recentlyWatched = useMemo(() => {
+    if (!user) return [];
+    const seen = new Set();
+    return diary.reduce((acc, e) => {
+      if (e.showData && !seen.has(e.showData.id)) { seen.add(e.showData.id); acc.push(e.showData); }
+      return acc;
+    }, []).slice(0, 6);
+  }, [user, diary]);
+
   const deleteAccount = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) return "Could not get session. Please sign in again.";
@@ -948,13 +966,23 @@ export default function ShowLog() {
     if (!searchQuery.trim()) { setSearchResults([]); return; }
     const t = setTimeout(() => {
       setSearching(true);
-      fetchTMDBViaSearch(searchQuery).then(r => { setSearchResults(r); r.forEach(s => showCache.current.set(s.id, s)); }).finally(() => setSearching(false));
+      fetchTMDBViaSearch(searchQuery).then(r => {
+        setSearchResults(r);
+        r.forEach(s => showCache.current.set(s.id, s));
+        setRecentSearches(prev => {
+          const q = searchQuery.trim();
+          const updated = [q, ...prev.filter(x => x !== q)].slice(0, 10);
+          localStorage.setItem("showlog_recent_searches", JSON.stringify(updated));
+          return updated;
+        });
+      }).finally(() => setSearching(false));
     }, 600);
     return () => clearTimeout(t);
   }, [searchQuery]);
 
   const navItems = [
     { key: "home", label: "Home", icon: "◉" },
+    { key: "search", label: "Search", icon: "⌕" },
     { key: "watchlist", label: "Watchlist", icon: "☆" },
     { key: "diary", label: "Diary", icon: "◔" },
     { key: "profile", label: "Profile", icon: "⬡" },
@@ -963,7 +991,7 @@ export default function ShowLog() {
   return (
     <div style={{ background: "#0d1117", minHeight: "100vh", color: "#cde", fontFamily: "'DM Sans',sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0d1117; }
@@ -978,10 +1006,14 @@ export default function ShowLog() {
         .desktop-nav { display: flex; }
         .desktop-search { display: flex; }
         .mobile-bottom-nav { display: none; }
+        .mobile-search-bar { display: none; }
+        .mobile-recent-searches { display: none; }
         @media (max-width: 640px) {
           .desktop-nav { display: none !important; }
           .desktop-search { display: none !important; }
           .mobile-bottom-nav { display: flex !important; }
+          .mobile-search-bar { display: block; }
+          .mobile-recent-searches { display: block; }
         }
       `}</style>
 
@@ -993,7 +1025,7 @@ export default function ShowLog() {
             <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: -0.5 }}>ShowLog</span>
           </div>
           <nav className="desktop-nav" style={{ gap: 4 }}>
-            {navItems.map(item => (
+            {navItems.filter(i => i.key !== "search").map(item => (
               <button key={item.key} onClick={() => { setCurrentView(item.key); setSearchQuery(""); }}
                 style={{ background: currentView === item.key ? "rgba(0,224,84,0.1)" : "transparent", border: "none", color: currentView === item.key ? "#00e054" : "#678", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s" }}>
                 <span style={{ fontSize: 14 }}>{item.icon}</span>{item.label}
@@ -1003,9 +1035,26 @@ export default function ShowLog() {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div className="desktop-search" style={{ position: "relative" }}>
               <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); if (e.target.value) setCurrentView("search"); }}
-                onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} placeholder="Search TV shows..."
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setTimeout(() => setSearchFocused(false), 150)} placeholder="Search TV shows..."
                 style={{ background: searchFocused ? "#1c2228" : "#14181c", border: searchFocused ? "1px solid #00e054" : "1px solid #2c3440", borderRadius: 8, color: "#cde", padding: "8px 14px 8px 36px", fontSize: 13, width: searchFocused ? 240 : 200, transition: "all 0.3s" }} />
               <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "#567" }}>⌕</span>
+              {searchFocused && !searchQuery && recentSearches.length > 0 && (
+                <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, background: "#1c2228", border: "1px solid #2c3440", borderRadius: 8, padding: "10px 14px", zIndex: 200, boxShadow: "0 8px 24px rgba(0,0,0,0.5)", animation: "fadeIn 0.15s" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontSize: 10, color: "#456", textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600 }}>Recent</span>
+                    <button onMouseDown={e => e.preventDefault()} onClick={() => { setRecentSearches([]); localStorage.removeItem("showlog_recent_searches"); }}
+                      style={{ background: "none", border: "none", color: "#456", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", padding: 0 }}>Clear</button>
+                  </div>
+                  {recentSearches.map(q => (
+                    <button key={q} onMouseDown={e => e.preventDefault()} onClick={() => { setSearchQuery(q); setCurrentView("search"); setSearchFocused(false); }}
+                      style={{ display: "block", width: "100%", background: "none", border: "none", color: "#9ab", padding: "5px 0", textAlign: "left", fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                      onMouseEnter={e => e.currentTarget.style.color = "#fff"} onMouseLeave={e => e.currentTarget.style.color = "#9ab"}>
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {user ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1070,6 +1119,36 @@ export default function ShowLog() {
                 </div>
               )}
 
+              {/* Continue Watching */}
+              {continueWatching.length > 0 && (
+                <section style={{ marginBottom: 40 }}>
+                  <h3 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 20 }}>Continue Watching</h3>
+                  <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8 }}>
+                    {continueWatching.map((s, i) => {
+                      const eps = episodeProgress.get(s.id);
+                      const total = showTotals.get(s.id) || 0;
+                      const latestEp = getLatestEpisode(eps);
+                      return (
+                        <div key={s.id} style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 6 }}>
+                          <ShowCard show={s} onClick={handleShowClick} delay={i * 60} progressCount={eps?.size || 0} progressTotal={total} />
+                          {latestEp && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: "#678", textAlign: "center" }}>Up to {latestEp}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* Recently Watched */}
+              {recentlyWatched.length > 0 && (
+                <section style={{ marginBottom: 40 }}>
+                  <h3 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 20 }}>Recently Watched</h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16 }}>
+                    {recentlyWatched.map((s, i) => <ShowCard key={s.id} show={s} onClick={handleShowClick} delay={i * 70} />)}
+                  </div>
+                </section>
+              )}
+
               {[["Trending", trending.slice(1, 7)], ["Popular", popular.slice(0, 6)], ["Top Rated", topRated.slice(0, 6)]].map(([title, shows]) => shows.length > 0 && (
                 <section key={title} style={{ marginBottom: 48 }}>
                   <h3 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 20 }}>{title}</h3>
@@ -1084,19 +1163,48 @@ export default function ShowLog() {
           {/* SEARCH */}
           {currentView === "search" && (
             <div style={{ paddingTop: 32 }}>
+              {/* Mobile-only search input */}
+              <div className="mobile-search-bar" style={{ marginBottom: 20 }}>
+                <div style={{ position: "relative" }}>
+                  <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search TV shows..." autoFocus
+                    style={{ width: "100%", background: "#1c2228", border: "1px solid #00e054", borderRadius: 8, color: "#cde", padding: "10px 14px 10px 38px", fontSize: 14, boxSizing: "border-box", fontFamily: "'DM Sans',sans-serif" }} />
+                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "#567" }}>⌕</span>
+                </div>
+              </div>
+
               <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
                 {searchQuery ? `Results for "${searchQuery}"` : "Search for a show"}
               </h2>
+
+              {/* Recent searches — mobile only (desktop uses header dropdown) */}
+              {!searchQuery && recentSearches.length > 0 && (
+                <div className="mobile-recent-searches" style={{ marginBottom: 32 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <span style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600 }}>Recent</span>
+                    <button onClick={() => { setRecentSearches([]); localStorage.removeItem("showlog_recent_searches"); }}
+                      style={{ background: "none", border: "none", color: "#456", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Clear</button>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {recentSearches.map(q => (
+                      <button key={q} onClick={() => setSearchQuery(q)}
+                        style={{ background: "#1c2228", border: "1px solid #2c3440", borderRadius: 20, color: "#9ab", padding: "6px 14px", fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {searching ? (
                 <div style={{ padding: "40px 0" }}><LoadingDots text="Searching TMDB" /></div>
-              ) : (
+              ) : searchQuery ? (
                 <>
                   <p style={{ fontSize: 14, color: "#678", marginBottom: 28 }}>{searchResults.length} result{searchResults.length !== 1 ? "s" : ""}</p>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16 }}>
                     {searchResults.map((s, i) => <ShowCard key={s.id} show={s} onClick={handleShowClick} delay={i * 50} />)}
                   </div>
                 </>
-              )}
+              ) : null}
             </div>
           )}
 
