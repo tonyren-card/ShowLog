@@ -4,19 +4,16 @@
 
 ---
 
-## Latest — v1.1.3
-<sub>Published 2026-06-02</sub>
+## Latest — v1.2.0
+<sub>Published 2026-06-18</sub>
 
-**Mobile search, homepage rows, optional rating, and cleanup.**
+**Social feed — follow other users, read public reviews, and see friend activity.**
 
 ### Fixes
-- **BUG-05 + UI-03: Mobile search** — Added a Search tab to the mobile bottom nav (between Home and Watchlist). Tapping it opens a dedicated search view with an auto-focused input. The desktop header search is unchanged. Closes the critical gap where mobile users had no way to search.
-- **BUG-07: Optional diary rating** — Removed the mandatory rating gate from the "Log / Review" form and the diary edit form. The Save button is always enabled; entries can now be saved with 0 stars. The rating field label now reads "YOUR RATING (optional)" / "RATING (optional)" so users know it isn't required.
-- **BUG-10: Remove Playfair Display font** — Removed the unused Playfair Display import from both `App.jsx` and `index.html`. Replaced by Space Grotesk in v1.1.0 but never cleaned up; eliminates an unnecessary Google Fonts network request on every page load.
+- **BUG-08: "Recently Watched" on Profile shows wrong order** — The `watched_shows` query now orders by `marked_at` descending, the same column iOS added to this shared table in v1.1.2. The Profile page's Recently Watched grid takes the first 6 entries directly instead of slicing the end of an unordered `Set` and reversing it. Marking a show watched now also sets `marked_at` explicitly and inserts the id at the front of local state, so it appears first immediately, without a reload.
 
 ### Features
-- **FEA-17: Recent Searches** — Platform-aware implementation. **Desktop:** clicking the header search bar immediately shows a dropdown list of recent searches below the input; selecting one runs the search without navigating away from the current view. **Mobile:** the dedicated search view shows recent searches as full-screen pill chips when the query is empty. Searches stored in `localStorage` (max 10, newest-first) with a Clear button. No account required.
-- **FEA-16: Continue Watching & Recently Watched** — Two personalized rows added to the homepage below the Trending hero banner, visible when signed in. **Continue Watching** — horizontal scroll row of watchlist shows with episode progress, each with an "Up to SxEx" label. **Recently Watched** — 6-column grid of the most recently logged shows (unique, derived from diary entries). Both rows are hidden when empty or signed out.
+- **FEA-11: Social / Friends Feed** — Profiles are public by default and diary ratings/reviews are readable by anyone, signed in or not — a new "Reviews" tab on the show detail modal lists every public review for that show, with a Follow button on reviewers you don't already follow. A new "Feed" tab lets you search for people by username and follow them; following personalizes two things: the Feed tab itself (a reverse-chronological activity stream of diary entries from people you follow) and a new "Popular with Friends" row on the homepage (what your followers have been logging). A Public/Private toggle on the Profile page (with a live Following count) lets anyone opt out entirely — going private immediately hides diary entries and profile from everyone, including existing followers. Backed by two new Supabase tables, `profiles` (kept in sync with auth user metadata via a trigger) and `follows`.
 
 ---
 
@@ -26,7 +23,6 @@
 
 | ID | Bug | Severity | Details |
 |----|-----|----------|---------|
-| BUG-08 | **"Recently Watched" on Profile shows wrong order** | Low | `watched_shows` is queried without `ORDER BY` (line 768), so the `Set`'s insertion order depends on arbitrary Supabase result order. `[...watched].slice(-6).reverse()` may not reflect actual recency. Fix: add `.order("created_at", { ascending: false })` to the `watched_shows` query and use that ordering when slicing for the profile display. |
 | BUG-09 | **Half-star input not implemented** | Low | FEA-06 describes "0.5–5 stars" ratings, and the `StarRating` component has display logic for half-stars, but `onChange(s)` always passes an integer (1–5) on click. Users can only save whole-star ratings from the web UI. Fix: split each star span into two clickable zones (`left` → `s - 0.5`, `right` → `s`) to support 0.5-increment input. |
 
 ### Feature
@@ -36,7 +32,6 @@
 | FEA-08 | **Year in Review / Stats Page** | High | Annual wrapped-style stats: total shows watched, total episodes, top genres, most-watched network, average rating, watching streaks, first and last log of the year. Shareable as an image card (like Letterboxd's year in review). Data comes from diary entries + Supabase aggregations. |
 | FEA-09 | **AI Recommendations** | Medium | Use Claude to recommend shows based on the user's diary and ratings. Prompt includes top-rated shows and genres from the user's history; Claude returns 6–10 personalized picks with explanations. Powered by a `/api/recommend` endpoint that pulls the user's Supabase data and sends it as context. |
 | FEA-10 | **Import from Trakt / IMDb** | Medium | Let users migrate their existing watch history from Trakt (JSON export) or IMDb (CSV export). Parser maps their format to ShowLog diary entries + ratings, deduplicates against existing entries, shows a preview with New/Existing badges before committing. |
-| FEA-11 | **Social / Friends Feed** | Medium | Follow other users and see their recent diary entries in a feed. Show detail pages display friends' ratings inline. "Popular with friends" section on the homepage. Requires public/private profile settings. |
 | FEA-12 | **Show Lists** | Medium | Create and share curated lists (e.g. "Best HBO Shows", "Comfort Watches"). Lists have a title, description, and ordered set of shows. Public lists are discoverable. |
 | FEA-13 | **Streaming Availability** | Medium | Show which streaming platforms a show is currently available on using TMDB's `watch/providers` endpoint. Display platform logos on show cards and detail pages. Filter watchlist by platform. |
 | FEA-14 | **Reviews & Notes** | Low | Longer-form reviews on shows (not just a star rating). Public or private. Community reviews on show detail page if social is enabled. |
@@ -67,6 +62,8 @@
 
 | ID | Item | Type | Completed |
 |----|------|------|-----------|
+| FEA-11 | **Social / Friends Feed** — Public-by-default profiles with reviews readable by anyone; a Feed tab to find/follow people and see their activity; a "Popular with Friends" homepage row; a "Reviews" tab on every show; a Public/Private toggle on Profile. New `profiles` + `follows` Supabase tables. | Feature → Done | Jun 18 |
+| BUG-08 | **"Recently Watched" on Profile shows wrong order** — `watched_shows` query now orders by `marked_at` descending (the column iOS added in v1.1.2) instead of relying on arbitrary Supabase order. Profile grid takes the first 6 entries directly; no more slicing an unordered `Set`. | Bug → Fixed | Jun 18 |
 | FEA-16 | **Home: Continue Watching & Recently Watched** — Two personalized homepage rows below the Trending hero. Continue Watching: horizontal scroll of watchlist shows with episode progress + "Up to SxEx" label. Recently Watched: 6-column grid of most recently logged shows from diary. Both hidden when empty or signed out. | Feature → Done | Jun 2 |
 | FEA-17 | **Recent Searches** — `localStorage` pill chips shown in the search view when query is empty (max 10, newest-first). Clicking a chip re-runs the search. Clear button removes all history. No account required. | Feature → Done | Jun 2 |
 | UI-03 | **Mobile Search View** — Search tab added to mobile bottom nav with auto-focused in-page input. Keyboard opens immediately on tap. Resolves BUG-05. | UI → Done | Jun 2 |
@@ -90,6 +87,23 @@
 ---
 
 ## 🚀 Version History
+
+### v1.2 — Jun 2026
+
+---
+
+#### v1.2.0
+<sub>Published 2026-06-18</sub>
+
+**Social feed.**
+
+##### Fixes
+- **BUG-08: "Recently Watched" on Profile shows wrong order** — The `watched_shows` query now orders by `marked_at` descending, the same column iOS added to this shared table in v1.1.2. The Profile page's Recently Watched grid takes the first 6 entries directly instead of slicing the end of an unordered `Set` and reversing it. Marking a show watched now also sets `marked_at` explicitly and inserts the id at the front of local state, so it appears first immediately, without a reload.
+
+##### Features
+- **FEA-11: Social / Friends Feed** — Profiles are public by default and diary ratings/reviews are readable by anyone, signed in or not — a new "Reviews" tab on the show detail modal lists every public review for that show, with a Follow button on reviewers you don't already follow. A new "Feed" tab lets you search for people by username and follow them; following personalizes two things: the Feed tab itself (a reverse-chronological activity stream of diary entries from people you follow) and a new "Popular with Friends" row on the homepage (what your followers have been logging). A Public/Private toggle on the Profile page (with a live Following count) lets anyone opt out entirely — going private immediately hides diary entries and profile from everyone, including existing followers. Backed by two new Supabase tables, `profiles` (kept in sync with auth user metadata via a trigger) and `follows`.
+
+---
 
 ### v1.1 — Apr–May 2026
 

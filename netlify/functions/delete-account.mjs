@@ -47,6 +47,8 @@ export default async (req) => {
     fetch(`${supabaseUrl}/rest/v1/diary_entries?user_id=eq.${userId}`, { method: "DELETE", headers }),
     fetch(`${supabaseUrl}/rest/v1/watched_shows?user_id=eq.${userId}`, { method: "DELETE", headers }),
     fetch(`${supabaseUrl}/rest/v1/show_progress?user_id=eq.${userId}`, { method: "DELETE", headers }),
+    fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${userId}`, { method: "DELETE", headers }),
+    fetch(`${supabaseUrl}/rest/v1/follows?or=(follower_id.eq.${userId},following_id.eq.${userId})`, { method: "DELETE", headers }),
   ]);
 
   // Delete the auth user

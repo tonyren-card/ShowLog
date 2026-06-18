@@ -268,7 +268,7 @@ const SeasonAccordion = ({ showId, seasons, watchedEps, onToggle, onBulkToggle, 
   );
 };
 
-const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggleWatched, addToDiary, watchedEps, toggleEpisode, onBulkToggle, totalEpisodes, onTotalsKnown, user }) => {
+const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggleWatched, addToDiary, watchedEps, toggleEpisode, onBulkToggle, totalEpisodes, onTotalsKnown, user, following, followUser }) => {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userRating, setUserRating] = useState(0);
@@ -277,7 +277,28 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
   const [showReviewInput, setShowReviewInput] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
   const [tab, setTab] = useState("about");
+  const [communityReviews, setCommunityReviews] = useState(null);
+  const [loadingReviews, setLoadingReviews] = useState(false);
   const today = new Date().toISOString().split("T")[0];
+
+  useEffect(() => {
+    if (tab !== "reviews" || communityReviews !== null) return;
+    setLoadingReviews(true);
+    (async () => {
+      try {
+        const { data: entries } = await supabase.from("diary_entries").select("id, user_id, rating, notes, watched_at").eq("show_id", show.id).order("watched_at", { ascending: false }).limit(50);
+        const rows = entries || [];
+        const ids = [...new Set(rows.map(r => r.user_id))];
+        let profiles = new Map();
+        if (ids.length > 0) {
+          const { data: profileRows } = await supabase.from("profiles").select("id, username, avatar_url").in("id", ids);
+          profiles = new Map((profileRows || []).map(p => [p.id, p]));
+        }
+        setCommunityReviews(rows.map(r => ({ ...r, profile: profiles.get(r.user_id) })));
+      } catch (e) { console.error(e); setCommunityReviews([]); }
+      finally { setLoadingReviews(false); }
+    })();
+  }, [tab, show.id, communityReviews]);
 
   useEffect(() => {
     setLoading(true);
@@ -372,7 +393,7 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
           )}
 
           <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #2c3440", marginBottom: 24 }}>
-            {["about", "cast", "seasons"].map((t) => (
+            {["about", "cast", "seasons", "reviews"].map((t) => (
               <button key={t} onClick={() => setTab(t)} style={{ background: "none", border: "none", borderBottom: tab === t ? "2px solid #00e054" : "2px solid transparent", color: tab === t ? "#fff" : "#678", padding: "12px 20px", cursor: "pointer", fontWeight: 600, fontSize: 13, textTransform: "uppercase", letterSpacing: 1, transition: "all 0.2s" }}>{t}</button>
             ))}
           </div>
@@ -422,6 +443,46 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
           )}
           {!loading && tab === "seasons" && !details?.seasons && (
             <div style={{ color: "#567", fontSize: 14, padding: "20px 0" }}>No season data available.</div>
+          )}
+
+          {tab === "reviews" && (
+            <div style={{ animation: "fadeIn 0.3s" }}>
+              {loadingReviews ? (
+                <div style={{ padding: "16px 0" }}><LoadingDots text="Loading reviews" /></div>
+              ) : !communityReviews || communityReviews.length === 0 ? (
+                <div style={{ color: "#567", fontSize: 14, padding: "20px 0" }}>No reviews yet. Be the first to log this show.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {communityReviews.map(r => {
+                    const isFollowing = following?.has(r.user_id);
+                    const isSelf = user?.id === r.user_id;
+                    return (
+                      <div key={r.id} style={{ display: "flex", gap: 12, padding: "14px 0", borderBottom: "1px solid #1c2228" }}>
+                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: r.profile?.avatar_url ? "transparent" : "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#14181c", flexShrink: 0, overflow: "hidden" }}>
+                          {r.profile?.avatar_url ? <img src={r.profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (r.profile?.username?.[0] || "?").toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{r.profile?.username || "Unknown"}</span>
+                            {isFollowing && <span style={{ fontSize: 10, color: "#00e054", background: "rgba(0,224,84,0.12)", padding: "2px 7px", borderRadius: 10, fontWeight: 600 }}>Following</span>}
+                            {r.rating > 0 && (
+                              <div style={{ display: "flex", gap: 1 }}>
+                                {[...Array(r.rating)].map((_, j) => <span key={j} style={{ color: "#00e054", fontSize: 12 }}>★</span>)}
+                              </div>
+                            )}
+                            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: "#567" }}>{r.watched_at}</span>
+                            {!isSelf && !isFollowing && (
+                              <button onClick={() => followUser?.(r.profile)} style={{ background: "none", border: "1px solid #456", color: "#9ab", borderRadius: 6, padding: "2px 10px", fontSize: 11, cursor: "pointer", marginLeft: "auto" }}>Follow</button>
+                            )}
+                          </div>
+                          {r.notes && <p style={{ fontSize: 13, color: "#9ab", lineHeight: 1.5, margin: 0 }}>{r.notes}</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -524,8 +585,42 @@ const DiaryEntry = ({ entry, index, onUpdate, onDelete, onShowClick }) => {
   );
 };
 
+// ── Feed Entry ──
+const FeedEntry = ({ entry, index, profile, onShowClick }) => {
+  const show = entry.showData;
+  if (!show) return null;
+  const avatarLetter = (profile?.username?.[0] || "?").toUpperCase();
+  return (
+    <div onClick={() => onShowClick(show)}
+      style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 8, cursor: "pointer", animation: `fadeSlideUp 0.4s ease ${index * 60}ms both`, transition: "background 0.2s" }}
+      onMouseEnter={e => e.currentTarget.style.background = "#1c2228"}
+      onMouseLeave={e => e.currentTarget.style.background = ""}>
+      <div style={{ width: 32, height: 32, borderRadius: "50%", background: profile?.avatar_url ? "transparent" : "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#14181c", flexShrink: 0, overflow: "hidden" }}>
+        {profile?.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : avatarLetter}
+      </div>
+      <div style={{ width: 36, height: 54, borderRadius: 4, overflow: "hidden", flexShrink: 0, background: "#1c2228" }}>
+        {posterUrl(show.poster_path, "w92") ? <img src={posterUrl(show.poster_path, "w92")} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Placeholder />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, color: "#9ab" }}>
+          <strong style={{ color: "#fff" }}>{profile?.username || "Someone"}</strong> logged <strong style={{ color: "#fff" }}>{show.name}</strong>
+        </div>
+        {entry.review && <div style={{ fontSize: 12, color: "#678", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.review}</div>}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+        {entry.rating > 0 && (
+          <div style={{ display: "flex", gap: 2 }}>
+            {[...Array(entry.rating)].map((_, j) => <span key={j} style={{ color: "#00e054", fontSize: 12 }}>★</span>)}
+          </div>
+        )}
+        <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: "#567" }}>{entry.date}</span>
+      </div>
+    </div>
+  );
+};
+
 // ── Profile View ──
-const ProfileView = ({ user, setUser, watched, diary, watchlist, showCache, handleShowClick, onDeleteAccount }) => {
+const ProfileView = ({ user, setUser, watched, diary, watchlist, showCache, handleShowClick, onDeleteAccount, followingCount, isPublic, onTogglePrivacy }) => {
   const username = user.user_metadata?.username || "";
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState(username);
@@ -622,9 +717,18 @@ const ProfileView = ({ user, setUser, watched, diary, watchlist, showCache, hand
           {username && <p style={{ fontSize: 13, color: "#456", marginBottom: 4 }}>{user.email}</p>}
           <p style={{ fontSize: 13, color: "#567", marginBottom: 16 }}>Member since {new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
           <div style={{ display: "flex", gap: 32, marginBottom: 20 }}>
-            {[["Watched", watched.size, "#00e054"], ["Diary", diary.length, "#fff"], ["Watchlist", watchlist.size, "#fff"]].map(([label, val, color]) => (
+            {[["Watched", watched.size, "#00e054"], ["Diary", diary.length, "#fff"], ["Watchlist", watchlist.size, "#fff"], ["Following", followingCount, "#fff"]].map(([label, val, color]) => (
               <div key={label}><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 24, fontWeight: 700, color }}>{val}</div><div style={{ fontSize: 11, color: "#567", textTransform: "uppercase", letterSpacing: 1 }}>{label}</div></div>
             ))}
+          </div>
+          <div onClick={onTogglePrivacy} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, background: "#1c2228", border: "1px solid #2c3440", borderRadius: 10, padding: "12px 16px", maxWidth: 420, cursor: "pointer" }}>
+            <div style={{ width: 38, height: 22, borderRadius: 12, background: isPublic ? "#00e054" : "#2c3440", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+              <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: isPublic ? 19 : 3, transition: "left 0.2s" }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{isPublic ? "Public Profile" : "Private Profile"}</div>
+              <div style={{ fontSize: 12, color: "#678", marginTop: 2 }}>{isPublic ? "Anyone can see your diary, ratings, and reviews, and follow you." : "Your profile and diary are hidden from everyone."}</div>
+            </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <button onClick={() => supabase.auth.signOut()} style={{ background: "transparent", border: "1px solid #456", color: "#9ab", borderRadius: 8, padding: "8px 18px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Sign Out</button>
@@ -659,7 +763,7 @@ const ProfileView = ({ user, setUser, watched, diary, watchlist, showCache, hand
         <>
           <h3 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 16 }}>Recently Watched</h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16 }}>
-            {[...watched].slice(-6).reverse().map((id, i) => { const s = showCache.current.get(id); return s ? <ShowCard key={id} show={s} onClick={handleShowClick} delay={i * 70} /> : null; })}
+            {[...watched].slice(0, 6).map((id, i) => { const s = showCache.current.get(id); return s ? <ShowCard key={id} show={s} onClick={handleShowClick} delay={i * 70} /> : null; })}
           </div>
         </>
       )}
@@ -760,13 +864,21 @@ export default function ShowLog() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const showCache = useRef(new Map());
 
+  const [following, setFollowing] = useState(new Set());
+  const [followingProfiles, setFollowingProfiles] = useState(new Map());
+  const [feed, setFeed] = useState([]);
+  const [isPublic, setIsPublic] = useState(true);
+  const [peopleQuery, setPeopleQuery] = useState("");
+  const [peopleResults, setPeopleResults] = useState([]);
+  const [peopleSearching, setPeopleSearching] = useState(false);
+
   const requireAuth = () => { if (!user) { setShowAuthModal(true); return false; } return true; };
 
   const loadUserData = useCallback(async (uid) => {
     const [watchlistRes, diaryRes, watchedRes, progressRes] = await Promise.allSettled([
       supabase.from("watchlist_entries").select("show_id, show_data").eq("user_id", uid),
       supabase.from("diary_entries").select("*").eq("user_id", uid).order("watched_at", { ascending: false }),
-      supabase.from("watched_shows").select("show_id, show_data").eq("user_id", uid),
+      supabase.from("watched_shows").select("show_id, show_data").eq("user_id", uid).order("marked_at", { ascending: false }),
       supabase.from("show_progress").select("show_id, watched_episodes, total_episodes").eq("user_id", uid),
     ]);
     if (watchlistRes.status === "fulfilled" && watchlistRes.value.data) {
@@ -792,6 +904,56 @@ export default function ShowLog() {
     }
   }, []);
 
+  const loadSocialData = useCallback(async (uid) => {
+    const [followRes, ownProfileRes] = await Promise.allSettled([
+      supabase.from("follows").select("following_id").eq("follower_id", uid),
+      supabase.from("profiles").select("is_public").eq("id", uid).single(),
+    ]);
+    const ids = followRes.status === "fulfilled" ? (followRes.value.data || []).map(r => r.following_id) : [];
+    setFollowing(new Set(ids));
+    if (ownProfileRes.status === "fulfilled" && ownProfileRes.value.data) {
+      setIsPublic(ownProfileRes.value.data.is_public);
+    }
+    if (ids.length === 0) {
+      setFollowingProfiles(new Map());
+      setFeed([]);
+      return;
+    }
+    const [profilesRes, feedRes] = await Promise.allSettled([
+      supabase.from("profiles").select("id, username, avatar_url").in("id", ids),
+      supabase.from("diary_entries").select("id, user_id, show_id, show_data, rating, notes, watched_at").in("user_id", ids).order("watched_at", { ascending: false }).limit(100),
+    ]);
+    if (profilesRes.status === "fulfilled" && profilesRes.value.data) {
+      setFollowingProfiles(new Map(profilesRes.value.data.map(p => [p.id, p])));
+    }
+    if (feedRes.status === "fulfilled" && feedRes.value.data) {
+      setFeed(feedRes.value.data.map(e => ({ id: e.id, userId: e.user_id, showId: e.show_id, showData: e.show_data, rating: e.rating, review: e.notes, date: e.watched_at })));
+    }
+  }, []);
+
+  const followUser = async (profile) => {
+    if (!requireAuth()) return;
+    setFollowing(prev => new Set(prev).add(profile.id));
+    setFollowingProfiles(prev => new Map(prev).set(profile.id, profile));
+    await supabase.from("follows").insert({ follower_id: user.id, following_id: profile.id });
+    loadSocialData(user.id);
+  };
+
+  const unfollowUser = async (id) => {
+    if (!requireAuth()) return;
+    setFollowing(prev => { const n = new Set(prev); n.delete(id); return n; });
+    setFollowingProfiles(prev => { const m = new Map(prev); m.delete(id); return m; });
+    setFeed(prev => prev.filter(e => e.userId !== id));
+    await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", id);
+  };
+
+  const togglePrivacy = async () => {
+    if (!user) return;
+    const next = !isPublic;
+    setIsPublic(next);
+    await supabase.from("profiles").update({ is_public: next }).eq("id", user.id);
+  };
+
   const toggleWatchlist = async (id, showData) => {
     if (!requireAuth()) return;
     const uid = user.id;
@@ -813,8 +975,8 @@ export default function ShowLog() {
       setWatched(prev => { const n = new Set(prev); n.delete(id); return n; });
       await supabase.from("watched_shows").delete().eq("user_id", uid).eq("show_id", id);
     } else {
-      setWatched(prev => { const n = new Set(prev); n.add(id); return n; });
-      await supabase.from("watched_shows").upsert({ user_id: uid, show_id: id, show_data: data });
+      setWatched(prev => new Set([id, ...prev]));
+      await supabase.from("watched_shows").upsert({ user_id: uid, show_id: id, show_data: data, marked_at: new Date().toISOString() });
     }
   };
 
@@ -899,6 +1061,18 @@ export default function ShowLog() {
     }, []).slice(0, 6);
   }, [user, diary]);
 
+  const popularWithFriends = useMemo(() => {
+    if (!user || feed.length === 0) return [];
+    const counts = new Map();
+    feed.forEach(e => {
+      if (!e.showData) return;
+      const entry = counts.get(e.showId) || { show: e.showData, watchers: new Set() };
+      entry.watchers.add(e.userId);
+      counts.set(e.showId, entry);
+    });
+    return [...counts.values()].sort((a, b) => b.watchers.size - a.watchers.size).slice(0, 6);
+  }, [user, feed]);
+
   const deleteAccount = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) return "Could not get session. Please sign in again.";
@@ -925,7 +1099,7 @@ export default function ShowLog() {
       if (session?.user) {
         const { data: { user: freshUser } } = await supabase.auth.getUser();
         setUser(freshUser || session.user);
-        await loadUserData(session.user.id);
+        await Promise.all([loadUserData(session.user.id), loadSocialData(session.user.id)]);
       }
       const showResults = await Promise.allSettled([
         fetchShowCategory("trending"),
@@ -938,14 +1112,14 @@ export default function ShowLog() {
       setLoading(false);
     }
     init().catch(() => { setError("Failed to initialize. Please refresh."); setLoading(false); });
-  }, [loadUserData]);
+  }, [loadUserData, loadSocialData]);
 
   // Auth state changes (sign in / sign out)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
         setUser(session.user);
-        await loadUserData(session.user.id);
+        await Promise.all([loadUserData(session.user.id), loadSocialData(session.user.id)]);
         setShowAuthModal(false);
       } else if (event === "USER_UPDATED" && session?.user) {
         setUser(session.user);
@@ -956,10 +1130,14 @@ export default function ShowLog() {
         setDiary([]);
         setEpisodeProgress(new Map());
         setShowTotals(new Map());
+        setFollowing(new Set());
+        setFollowingProfiles(new Map());
+        setFeed([]);
+        setIsPublic(true);
       }
     });
     return () => subscription.unsubscribe();
-  }, [loadUserData]);
+  }, [loadUserData, loadSocialData]);
 
   // Search
   useEffect(() => {
@@ -980,8 +1158,22 @@ export default function ShowLog() {
     return () => clearTimeout(t);
   }, [searchQuery]);
 
+  // Find people search
+  useEffect(() => {
+    if (!user || !peopleQuery.trim()) { setPeopleResults([]); return; }
+    const t = setTimeout(() => {
+      setPeopleSearching(true);
+      supabase.from("profiles").select("id, username, avatar_url").eq("is_public", true).neq("id", user.id)
+        .ilike("username", `%${peopleQuery.trim()}%`).limit(10)
+        .then(({ data }) => setPeopleResults((data || []).filter(p => p.username)))
+        .finally(() => setPeopleSearching(false));
+    }, 500);
+    return () => clearTimeout(t);
+  }, [peopleQuery, user]);
+
   const navItems = [
     { key: "home", label: "Home", icon: "◉" },
+    { key: "feed", label: "Feed", icon: "♡" },
     { key: "search", label: "Search", icon: "⌕" },
     { key: "watchlist", label: "Watchlist", icon: "☆" },
     { key: "diary", label: "Diary", icon: "◔" },
@@ -1149,6 +1341,21 @@ export default function ShowLog() {
                 </section>
               )}
 
+              {/* Popular with Friends */}
+              {popularWithFriends.length > 0 && (
+                <section style={{ marginBottom: 40 }}>
+                  <h3 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 20 }}>Popular with Friends</h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 16 }}>
+                    {popularWithFriends.map((entry, i) => (
+                      <div key={entry.show.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <ShowCard show={entry.show} onClick={handleShowClick} delay={i * 70} />
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: "#678", textAlign: "center" }}>{entry.watchers.size} friend{entry.watchers.size !== 1 ? "s" : ""} watched</div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {[["Trending", trending.slice(1, 7)], ["Popular", popular.slice(0, 6)], ["Top Rated", topRated.slice(0, 6)]].map(([title, shows]) => shows.length > 0 && (
                 <section key={title} style={{ marginBottom: 48 }}>
                   <h3 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 20 }}>{title}</h3>
@@ -1157,6 +1364,77 @@ export default function ShowLog() {
                   </div>
                 </section>
               ))}
+            </div>
+          )}
+
+          {/* FEED */}
+          {currentView === "feed" && (
+            <div style={{ paddingTop: 32 }}>
+              {!user ? (
+                <AuthBanner onSignIn={() => setShowAuthModal(true)} message="Follow people to see their activity here" />
+              ) : (
+                <>
+                  <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Feed</h2>
+                  <p style={{ fontSize: 14, color: "#678", marginBottom: 28 }}>Recent activity from people you follow</p>
+
+                  <div style={{ marginBottom: 28 }}>
+                    <div style={{ position: "relative", maxWidth: 360 }}>
+                      <input value={peopleQuery} onChange={e => setPeopleQuery(e.target.value)} placeholder="Find people by username..."
+                        style={{ width: "100%", background: "#14181c", border: "1px solid #2c3440", borderRadius: 8, color: "#cde", padding: "10px 14px 10px 36px", fontSize: 13, boxSizing: "border-box" }} />
+                      <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "#567" }}>⌕</span>
+                    </div>
+                    {peopleQuery.trim() && (
+                      <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8, maxWidth: 360 }}>
+                        {peopleSearching ? <LoadingDots text="Searching" /> : peopleResults.length === 0 ? (
+                          <p style={{ fontSize: 13, color: "#567" }}>No public profiles found.</p>
+                        ) : peopleResults.map(p => (
+                          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "#1c2228", borderRadius: 8, padding: "8px 12px" }}>
+                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: p.avatar_url ? "transparent" : "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#14181c", overflow: "hidden", flexShrink: 0 }}>
+                              {p.avatar_url ? <img src={p.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : p.username[0].toUpperCase()}
+                            </div>
+                            <span style={{ flex: 1, fontSize: 13, color: "#cde" }}>{p.username}</span>
+                            {following.has(p.id) ? (
+                              <button onClick={() => unfollowUser(p.id)} style={{ background: "rgba(0,224,84,0.15)", border: "1px solid #00e054", color: "#00e054", borderRadius: 6, padding: "5px 12px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>Following</button>
+                            ) : (
+                              <button onClick={() => followUser(p)} style={{ background: "transparent", border: "1px solid #456", color: "#9ab", borderRadius: 6, padding: "5px 12px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>Follow</button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {following.size > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
+                      {[...following].map(id => {
+                        const p = followingProfiles.get(id);
+                        return (
+                          <div key={id} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1c2228", border: "1px solid #2c3440", borderRadius: 20, padding: "5px 6px 5px 10px" }}>
+                            <div style={{ width: 20, height: 20, borderRadius: "50%", background: p?.avatar_url ? "transparent" : "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#14181c", overflow: "hidden", flexShrink: 0 }}>
+                              {p?.avatar_url ? <img src={p.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (p?.username?.[0] || "?").toUpperCase()}
+                            </div>
+                            <span style={{ fontSize: 12, color: p?.username ? "#9ab" : "#567" }}>{p?.username || "Private account"}</span>
+                            <button onClick={() => unfollowUser(id)} title="Unfollow" style={{ background: "none", border: "none", color: "#567", fontSize: 13, cursor: "pointer", padding: "0 4px", lineHeight: 1 }}>✕</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {feed.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {feed.map((entry, i) => (
+                        <FeedEntry key={entry.id} entry={entry} index={i} profile={followingProfiles.get(entry.userId)} onShowClick={handleShowClick} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: 80, color: "#456" }}>
+                      <div style={{ fontSize: 48, marginBottom: 16 }}>♡</div>
+                      <p style={{ fontSize: 16, fontWeight: 600 }}>{following.size === 0 ? "Follow people to see their activity" : "No activity yet"}</p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
 
@@ -1277,7 +1555,7 @@ export default function ShowLog() {
               {!user ? (
                 <AuthBanner onSignIn={() => setShowAuthModal(true)} message="Sign in to see your profile" />
               ) : (
-                <ProfileView user={user} setUser={setUser} watched={watched} diary={diary} watchlist={watchlist} showCache={showCache} handleShowClick={handleShowClick} onDeleteAccount={deleteAccount} />
+                <ProfileView user={user} setUser={setUser} watched={watched} diary={diary} watchlist={watchlist} showCache={showCache} handleShowClick={handleShowClick} onDeleteAccount={deleteAccount} followingCount={following.size} isPublic={isPublic} onTogglePrivacy={togglePrivacy} />
               )}
             </div>
           )}
@@ -1323,7 +1601,7 @@ export default function ShowLog() {
         )}
       </nav>
 
-      {selectedShow && <ShowDetail show={selectedShow} onClose={() => setSelectedShow(null)} watchlist={watchlist} toggleWatchlist={toggleWatchlist} watched={watched} toggleWatched={toggleWatched} addToDiary={addToDiary} watchedEps={episodeProgress.get(selectedShow.id) || new Set()} toggleEpisode={toggleEpisode} onBulkToggle={bulkToggleEpisodes} totalEpisodes={showTotals.get(selectedShow.id) || 0} onTotalsKnown={handleTotalsKnown} user={user} />}
+      {selectedShow && <ShowDetail show={selectedShow} onClose={() => setSelectedShow(null)} watchlist={watchlist} toggleWatchlist={toggleWatchlist} watched={watched} toggleWatched={toggleWatched} addToDiary={addToDiary} watchedEps={episodeProgress.get(selectedShow.id) || new Set()} toggleEpisode={toggleEpisode} onBulkToggle={bulkToggleEpisodes} totalEpisodes={showTotals.get(selectedShow.id) || 0} onTotalsKnown={handleTotalsKnown} user={user} following={following} followUser={followUser} />}
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
     </div>
   );
