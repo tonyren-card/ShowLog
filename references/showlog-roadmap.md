@@ -1,6 +1,6 @@
 # ShowLog — Roadmap & Feature Tracker
 
-**Last updated:** Jun 2, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
+**Last updated:** Jun 19, 2026 | [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: React + Vite + Netlify Functions + TMDB API + Supabase
 
 ---
 
@@ -11,9 +11,11 @@
 
 ### Fixes
 - **BUG-08: "Recently Watched" on Profile shows wrong order** — The `watched_shows` query now orders by `marked_at` descending, the same column iOS added to this shared table in v1.1.2. The Profile page's Recently Watched grid takes the first 6 entries directly instead of slicing the end of an unordered `Set` and reversing it. Marking a show watched now also sets `marked_at` explicitly and inserts the id at the front of local state, so it appears first immediately, without a reload.
+- **BUG-11: Usernameless profiles were unidentifiable** — Anyone without a username appeared as "Private account" in Following chips, or blank/"Unknown" in the Feed and Reviews tab — indistinguishable from someone who'd actually gone private, and impossible to tell apart from other usernameless people you follow. Public-but-usernameless profiles now fall back to showing the part of their email before the "@" (e.g. `jane.doe`) everywhere a username would normally appear, via a new `get_profiles` SQL function; the full email and domain are never returned to the client. A genuinely private profile still correctly shows "Private account" — that case returns no row at all, vs. a row with no name set.
 
 ### Features
 - **FEA-11: Social / Friends Feed** — Profiles are public by default and diary ratings/reviews are readable by anyone, signed in or not — a new "Reviews" tab on the show detail modal lists every public review for that show, with a Follow button on reviewers you don't already follow. A new "Feed" tab lets you search for people by username and follow them; following personalizes two things: the Feed tab itself (a reverse-chronological activity stream of diary entries from people you follow) and a new "Popular with Friends" row on the homepage (what your followers have been logging). A Public/Private toggle on the Profile page (with a live Following count) lets anyone opt out entirely — going private immediately hides diary entries and profile from everyone, including existing followers. Backed by two new Supabase tables, `profiles` (kept in sync with auth user metadata via a trigger) and `follows`.
+- **FEA-31: Search by email** — The Feed tab's "Find People" search now also matches by email address, not just username, so you can follow someone even if you only know their email. Matching happens entirely server-side via a `search_profiles` SQL function — the email itself is never returned to the client, only used internally to find a match. The search placeholder stays generic ("Find people...") rather than advertising email lookup.
 
 ---
 
@@ -62,6 +64,8 @@
 
 | ID | Item | Type | Completed |
 |----|------|------|-----------|
+| FEA-31 | **Search by email** — "Find People" search in the Feed tab matches by email as well as username, via a `search_profiles` SQL function that never returns the email itself. | Feature → Done | Jun 19 |
+| BUG-11 | **Usernameless profiles were unidentifiable** — Search results, Following chips, Feed, and Reviews now fall back to the part of a profile's email before "@" when no username is set, via a `get_profiles` SQL function; full email never returned. Genuinely private profiles still show "Private account". | Bug → Fixed | Jun 19 |
 | FEA-11 | **Social / Friends Feed** — Public-by-default profiles with reviews readable by anyone; a Feed tab to find/follow people and see their activity; a "Popular with Friends" homepage row; a "Reviews" tab on every show; a Public/Private toggle on Profile. New `profiles` + `follows` Supabase tables. | Feature → Done | Jun 18 |
 | BUG-08 | **"Recently Watched" on Profile shows wrong order** — `watched_shows` query now orders by `marked_at` descending (the column iOS added in v1.1.2) instead of relying on arbitrary Supabase order. Profile grid takes the first 6 entries directly; no more slicing an unordered `Set`. | Bug → Fixed | Jun 18 |
 | FEA-16 | **Home: Continue Watching & Recently Watched** — Two personalized homepage rows below the Trending hero. Continue Watching: horizontal scroll of watchlist shows with episode progress + "Up to SxEx" label. Recently Watched: 6-column grid of most recently logged shows from diary. Both hidden when empty or signed out. | Feature → Done | Jun 2 |
@@ -99,9 +103,11 @@
 
 ##### Fixes
 - **BUG-08: "Recently Watched" on Profile shows wrong order** — The `watched_shows` query now orders by `marked_at` descending, the same column iOS added to this shared table in v1.1.2. The Profile page's Recently Watched grid takes the first 6 entries directly instead of slicing the end of an unordered `Set` and reversing it. Marking a show watched now also sets `marked_at` explicitly and inserts the id at the front of local state, so it appears first immediately, without a reload.
+- **BUG-11: Usernameless profiles were unidentifiable** — Anyone without a username appeared as "Private account" in Following chips, or blank/"Unknown" in the Feed and Reviews tab — indistinguishable from someone who'd actually gone private, and impossible to tell apart from other usernameless people you follow. Public-but-usernameless profiles now fall back to showing the part of their email before the "@" (e.g. `jane.doe`) everywhere a username would normally appear, via a new `get_profiles` SQL function; the full email and domain are never returned to the client. A genuinely private profile still correctly shows "Private account" — that case returns no row at all, vs. a row with no name set.
 
 ##### Features
 - **FEA-11: Social / Friends Feed** — Profiles are public by default and diary ratings/reviews are readable by anyone, signed in or not — a new "Reviews" tab on the show detail modal lists every public review for that show, with a Follow button on reviewers you don't already follow. A new "Feed" tab lets you search for people by username and follow them; following personalizes two things: the Feed tab itself (a reverse-chronological activity stream of diary entries from people you follow) and a new "Popular with Friends" row on the homepage (what your followers have been logging). A Public/Private toggle on the Profile page (with a live Following count) lets anyone opt out entirely — going private immediately hides diary entries and profile from everyone, including existing followers. Backed by two new Supabase tables, `profiles` (kept in sync with auth user metadata via a trigger) and `follows`.
+- **FEA-31: Search by email** — The Feed tab's "Find People" search now also matches by email address, not just username, so you can follow someone even if you only know their email. Matching happens entirely server-side via a `search_profiles` SQL function — the email itself is never returned to the client, only used internally to find a match. The search placeholder stays generic ("Find people...") rather than advertising email lookup.
 
 ---
 

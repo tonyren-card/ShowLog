@@ -291,7 +291,7 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
         const ids = [...new Set(rows.map(r => r.user_id))];
         let profiles = new Map();
         if (ids.length > 0) {
-          const { data: profileRows } = await supabase.from("profiles").select("id, username, avatar_url").in("id", ids);
+          const { data: profileRows } = await supabase.rpc("get_profiles", { ids });
           profiles = new Map((profileRows || []).map(p => [p.id, p]));
         }
         setCommunityReviews(rows.map(r => ({ ...r, profile: profiles.get(r.user_id) })));
@@ -456,14 +456,15 @@ const ShowDetail = ({ show, onClose, watchlist, toggleWatchlist, watched, toggle
                   {communityReviews.map(r => {
                     const isFollowing = following?.has(r.user_id);
                     const isSelf = user?.id === r.user_id;
+                    const reviewerName = r.profile?.username || r.profile?.email_prefix;
                     return (
                       <div key={r.id} style={{ display: "flex", gap: 12, padding: "14px 0", borderBottom: "1px solid #1c2228" }}>
                         <div style={{ width: 32, height: 32, borderRadius: "50%", background: r.profile?.avatar_url ? "transparent" : "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#14181c", flexShrink: 0, overflow: "hidden" }}>
-                          {r.profile?.avatar_url ? <img src={r.profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (r.profile?.username?.[0] || "?").toUpperCase()}
+                          {r.profile?.avatar_url ? <img src={r.profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (reviewerName?.[0] || "?").toUpperCase()}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                            <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{r.profile?.username || "Unknown"}</span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{reviewerName || "Unknown"}</span>
                             {isFollowing && <span style={{ fontSize: 10, color: "#00e054", background: "rgba(0,224,84,0.12)", padding: "2px 7px", borderRadius: 10, fontWeight: 600 }}>Following</span>}
                             {r.rating > 0 && (
                               <div style={{ display: "flex", gap: 1 }}>
@@ -589,7 +590,8 @@ const DiaryEntry = ({ entry, index, onUpdate, onDelete, onShowClick }) => {
 const FeedEntry = ({ entry, index, profile, onShowClick }) => {
   const show = entry.showData;
   if (!show) return null;
-  const avatarLetter = (profile?.username?.[0] || "?").toUpperCase();
+  const displayName = profile?.username || profile?.email_prefix;
+  const avatarLetter = (displayName?.[0] || "?").toUpperCase();
   return (
     <div onClick={() => onShowClick(show)}
       style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 8, cursor: "pointer", animation: `fadeSlideUp 0.4s ease ${index * 60}ms both`, transition: "background 0.2s" }}
@@ -603,7 +605,7 @@ const FeedEntry = ({ entry, index, profile, onShowClick }) => {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, color: "#9ab" }}>
-          <strong style={{ color: "#fff" }}>{profile?.username || "Someone"}</strong> logged <strong style={{ color: "#fff" }}>{show.name}</strong>
+          <strong style={{ color: "#fff" }}>{displayName || "Someone"}</strong> logged <strong style={{ color: "#fff" }}>{show.name}</strong>
         </div>
         {entry.review && <div style={{ fontSize: 12, color: "#678", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.review}</div>}
       </div>
@@ -920,7 +922,7 @@ export default function ShowLog() {
       return;
     }
     const [profilesRes, feedRes] = await Promise.allSettled([
-      supabase.from("profiles").select("id, username, avatar_url").in("id", ids),
+      supabase.rpc("get_profiles", { ids }),
       supabase.from("diary_entries").select("id, user_id, show_id, show_data, rating, notes, watched_at").in("user_id", ids).order("watched_at", { ascending: false }).limit(100),
     ]);
     if (profilesRes.status === "fulfilled" && profilesRes.value.data) {
@@ -1163,9 +1165,8 @@ export default function ShowLog() {
     if (!user || !peopleQuery.trim()) { setPeopleResults([]); return; }
     const t = setTimeout(() => {
       setPeopleSearching(true);
-      supabase.from("profiles").select("id, username, avatar_url").eq("is_public", true).neq("id", user.id)
-        .ilike("username", `%${peopleQuery.trim()}%`).limit(10)
-        .then(({ data }) => setPeopleResults((data || []).filter(p => p.username)))
+      supabase.rpc("search_profiles", { search_query: peopleQuery.trim(), excluding_id: user.id })
+        .then(({ data }) => setPeopleResults(data || []))
         .finally(() => setPeopleSearching(false));
     }, 500);
     return () => clearTimeout(t);
@@ -1379,7 +1380,7 @@ export default function ShowLog() {
 
                   <div style={{ marginBottom: 28 }}>
                     <div style={{ position: "relative", maxWidth: 360 }}>
-                      <input value={peopleQuery} onChange={e => setPeopleQuery(e.target.value)} placeholder="Find people by username..."
+                      <input value={peopleQuery} onChange={e => setPeopleQuery(e.target.value)} placeholder="Find people..."
                         style={{ width: "100%", background: "#14181c", border: "1px solid #2c3440", borderRadius: 8, color: "#cde", padding: "10px 14px 10px 36px", fontSize: 13, boxSizing: "border-box" }} />
                       <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "#567" }}>⌕</span>
                     </div>
@@ -1387,19 +1388,22 @@ export default function ShowLog() {
                       <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8, maxWidth: 360 }}>
                         {peopleSearching ? <LoadingDots text="Searching" /> : peopleResults.length === 0 ? (
                           <p style={{ fontSize: 13, color: "#567" }}>No public profiles found.</p>
-                        ) : peopleResults.map(p => (
+                        ) : peopleResults.map(p => {
+                          const displayName = p.username || p.email_prefix || "Unknown";
+                          return (
                           <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "#1c2228", borderRadius: 8, padding: "8px 12px" }}>
                             <div style={{ width: 28, height: 28, borderRadius: "50%", background: p.avatar_url ? "transparent" : "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#14181c", overflow: "hidden", flexShrink: 0 }}>
-                              {p.avatar_url ? <img src={p.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : p.username[0].toUpperCase()}
+                              {p.avatar_url ? <img src={p.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : displayName[0].toUpperCase()}
                             </div>
-                            <span style={{ flex: 1, fontSize: 13, color: "#cde" }}>{p.username}</span>
+                            <span style={{ flex: 1, fontSize: 13, color: "#cde" }}>{displayName}</span>
                             {following.has(p.id) ? (
                               <button onClick={() => unfollowUser(p.id)} style={{ background: "rgba(0,224,84,0.15)", border: "1px solid #00e054", color: "#00e054", borderRadius: 6, padding: "5px 12px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>Following</button>
                             ) : (
                               <button onClick={() => followUser(p)} style={{ background: "transparent", border: "1px solid #456", color: "#9ab", borderRadius: 6, padding: "5px 12px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>Follow</button>
                             )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1408,12 +1412,13 @@ export default function ShowLog() {
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
                       {[...following].map(id => {
                         const p = followingProfiles.get(id);
+                        const name = p?.username || p?.email_prefix;
                         return (
                           <div key={id} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1c2228", border: "1px solid #2c3440", borderRadius: 20, padding: "5px 6px 5px 10px" }}>
                             <div style={{ width: 20, height: 20, borderRadius: "50%", background: p?.avatar_url ? "transparent" : "linear-gradient(135deg, #00e054, #40bcf4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#14181c", overflow: "hidden", flexShrink: 0 }}>
-                              {p?.avatar_url ? <img src={p.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (p?.username?.[0] || "?").toUpperCase()}
+                              {p?.avatar_url ? <img src={p.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (name?.[0] || "?").toUpperCase()}
                             </div>
-                            <span style={{ fontSize: 12, color: p?.username ? "#9ab" : "#567" }}>{p?.username || "Private account"}</span>
+                            <span style={{ fontSize: 12, color: name ? "#9ab" : "#567" }}>{name || "Private account"}</span>
                             <button onClick={() => unfollowUser(id)} title="Unfollow" style={{ background: "none", border: "none", color: "#567", fontSize: 13, cursor: "pointer", padding: "0 4px", lineHeight: 1 }}>✕</button>
                           </div>
                         );
